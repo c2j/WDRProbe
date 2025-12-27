@@ -30,3 +30,13 @@ build/
 
 # Tauri
 src-tauri/target/
+src-tauri/Cargo.lock
+
+# Rust specific patterns
+*.rs.bk
+*.rlib
+*.prof*
+*.profraw
+*.pdb
+debug/
+release/

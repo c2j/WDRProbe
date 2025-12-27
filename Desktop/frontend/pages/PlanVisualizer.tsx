@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { ApiService } from '../services/apiService';
 import { ExecutionPlanNode, WdrHotSql } from '../types';
-import { 
-  Play, Upload, AlertCircle, Database, Zap, FileCode, MousePointer2, 
-  GitBranch, AlignLeft, ChevronDown, ChevronRight, 
+import {
+  Play, Upload, AlertCircle, Database, Zap, FileCode, MousePointer2,
+  GitBranch, AlignLeft, ChevronDown, ChevronRight,
   Maximize2, Minimize2, X, Columns, Eye, EyeOff, PanelBottom,
   BookOpen, Search, Activity, Layers
 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import PlanImportDialog from '../components/PlanImportDialog';
 
 type PanelType = 'sql' | 'text' | 'visual';
 
@@ -31,6 +32,8 @@ const PlanVisualizer: React.FC = () => {
   
   // Help Modal State
   const [showHelp, setShowHelp] = useState(false);
+  // Import Dialog State
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   useEffect(() => {
     ApiService.getWdrHotSqls().then(setHotSqls);
@@ -50,6 +53,18 @@ const PlanVisualizer: React.FC = () => {
       setPlan(data);
       setLoading(false);
     });
+  };
+
+  const handleImportPlan = async (planText: string, format: 'json' | 'text') => {
+    setLoading(true);
+    try {
+      const planData = await ApiService.parseExecutionPlan(planText, format);
+      setPlan(planData);
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const togglePanel = (type: PanelType) => {
@@ -217,7 +232,10 @@ const PlanVisualizer: React.FC = () => {
                     {t('vis.title')}
                  </h2>
                  <span className="text-gray-300">|</span>
-                 <button className="text-sm text-gray-600 hover:text-blue-600 flex items-center bg-gray-50 px-3 py-1.5 rounded border border-gray-200 transition-colors">
+                 <button
+                    onClick={() => setShowImportDialog(true)}
+                    className="text-sm text-gray-600 hover:text-blue-600 flex items-center bg-gray-50 px-3 py-1.5 rounded border border-gray-200 transition-colors"
+                 >
                     <Upload size={14} className="mr-2"/> {t('vis.import')}
                  </button>
             </div>
@@ -491,8 +509,8 @@ const PlanVisualizer: React.FC = () => {
                             <BookOpen size={20} className="mr-2 text-blue-600" />
                             {t('vis.guide.title')}
                         </h3>
-                        <button 
-                            onClick={() => setShowHelp(false)} 
+                        <button
+                            onClick={() => setShowHelp(false)}
                             className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-1 hover:bg-gray-200"
                         >
                             <X size={20} />
@@ -567,6 +585,13 @@ const PlanVisualizer: React.FC = () => {
                 </div>
             </div>
         )}
+
+        {/* Import Dialog */}
+        <PlanImportDialog
+            isOpen={showImportDialog}
+            onClose={() => setShowImportDialog(false)}
+            onImport={handleImportPlan}
+        />
     </div>
   );
 };

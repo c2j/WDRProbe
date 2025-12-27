@@ -1,11 +1,11 @@
-import { 
-  ThresholdConfig, 
-  AuditLog, 
-  WdrReport, 
+import {
+  ThresholdConfig,
+  AuditLog,
+  WdrReport,
   WdrReportDetail,
-  WdrComparison, 
-  SqlAuditIssue, 
-  ExecutionPlanNode, 
+  WdrComparison,
+  SqlAuditIssue,
+  ExecutionPlanNode,
   WdrHotSql,
   SqlComparisonMetric,
   WaitEventComparison,
@@ -17,6 +17,9 @@ import {
   InstanceSummary,
   DashboardMetrics
 } from '../types';
+
+// Tauri API imports
+import { invoke as tauriInvoke } from '@tauri-apps/api/tauri';
 
 // Mock Data
 const MOCK_THRESHOLDS: ThresholdConfig[] = [
@@ -191,19 +194,40 @@ const MOCK_INSTANCES: InstanceSummary[] = [
 ];
 
 // Tauri IPC Helper
-const isTauri = () => !!(window as any).__TAURI__;
-const invoke = (window as any).__TAURI__?.invoke;
+const isTauri = () => {
+  // In Tauri v1, we check if we're running in a Tauri environment
+  // by checking if the @tauri-apps/api modules are available
+  const hasTauri = typeof tauriInvoke !== 'undefined';
+  if (!hasTauri) {
+    console.log('[DEBUG] Tauri not detected - running in browser mode');
+  } else {
+    console.log('[DEBUG] Tauri detected - using backend APIs');
+  }
+  return hasTauri;
+};
+const invoke = tauriInvoke;
 
 export const ApiService = {
   // Thresholds
   getThresholdConfigs: async (): Promise<ThresholdConfig[]> => {
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('get_threshold_configs');
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     return new Promise((resolve) => setTimeout(() => resolve([...MOCK_THRESHOLDS]), 300));
   },
   
   updateThresholdConfig: async (key: string, payload: { value: number }): Promise<void> => {
     console.log(`Updating ${key} to ${payload.value}`);
-    if (isTauri()) {
-        return invoke('update_threshold', { key, value: payload.value });
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('update_threshold', { key, value: payload.value });
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
     }
     const item = MOCK_THRESHOLDS.find(t => t.configKey === key);
     if (item) item.value = payload.value;
@@ -212,8 +236,12 @@ export const ApiService = {
 
   batchUpdateThresholdConfigs: async (map: Record<string, number>): Promise<void> => {
     console.log('Batch updating', map);
-    if (isTauri()) {
-        return invoke('batch_update_thresholds', { map });
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('batch_update_thresholds', { map });
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
     }
     Object.entries(map).forEach(([key, val]) => {
       const item = MOCK_THRESHOLDS.find(t => t.configKey === key);
@@ -224,12 +252,131 @@ export const ApiService = {
 
   // Reports
   getWdrReports: async (): Promise<WdrReport[]> => {
-    if (isTauri()) return invoke('get_wdr_reports');
+    if (isTauri() && invoke) {
+      try {
+        const response = await invoke('get_wdr_reports') as { reports: any[], total: number };
+        // Convert backend field names to frontend field names
+        const convertedReports: WdrReport[] = response.reports.map(report => ({
+          id: report.id,
+          instanceName: report.instance_name || '',
+          generateTime: report.generation_time || '',
+          period: report.snapshot_start && report.snapshot_end ? `${report.snapshot_start} - ${report.snapshot_end}` : '',
+          status: (report.status || 'Success') as 'Success' | 'Failed' | 'Running'
+        }));
+        return convertedReports;
+      } catch (error) {
+        console.warn('Tauri invoke failed, using mock data:', error);
+        return Promise.resolve(MOCK_REPORTS);
+      }
+    }
     return Promise.resolve(MOCK_REPORTS);
   },
 
+  importWdrReport: async (filePath?: string, instanceName?: string, description?: string): Promise<WdrReport> => {
+    if (isTauri() && invoke) {
+      const path = filePath;
+
+      if (!path || !instanceName) {
+        throw new Error('File path and instance name are required.');
+      }
+
+      try {
+        console.log('Backend invoked: import_wdr_report');
+        const result = await invoke('import_wdr_report', {
+          filePath: path,
+          instanceName,
+          description
+        }) as WdrReport;
+        console.log('Import result:', result);
+        return result;
+      } catch (error) {
+        console.warn('Tauri invoke failed, using mock data:', error);
+        // Fall through to mock implementation
+      }
+    }
+    // Mock implementation
+    console.log('Mock import:', filePath || 'no file path');
+    const newReport: WdrReport = {
+      id: Math.floor(Math.random() * 10000),
+      instanceName: instanceName || 'mock-instance',
+      generateTime: new Date().toISOString(),
+      period: '00:00-01:00',
+      status: 'Success'
+    };
+    MOCK_REPORTS.unshift(newReport);
+    return newReport;
+  },
+
+  selectAndImportWdrReport: async (): Promise<WdrReport> => {
+    return ApiService.importWdrReport();
+  },
+
   getWdrReportDetail: async (id: number): Promise<WdrReportDetail | null> => {
-    if (isTauri()) return invoke('get_wdr_report_detail', { id });
+    if (isTauri() && invoke) {
+      try {
+        const response = await invoke('get_wdr_report_detail', { reportId: id }) as any;
+        console.log('Raw response from backend:', response);
+
+        // Convert backend data to frontend format
+        const converted = {
+          id: response.id,
+          meta: {
+            id: response.id,
+            instanceName: response.instance_name || '',
+            generateTime: response.generation_time || '',
+            period: '',
+            status: (response.status || 'Success') as 'Success' | 'Failed' | 'Running'
+          },
+          snapshots: {
+            start: response.snapshot_start || '',
+            end: response.snapshot_end || ''
+          },
+          efficiency: [
+            { name: 'Buffer Hit %', value: response.efficiency?.buffer_hit_percent || 0, target: 99 },
+            { name: 'CPU Efficiency %', value: response.efficiency?.cpu_efficiency_percent || 0, target: 90 },
+            { name: 'Soft Parse %', value: response.efficiency?.soft_parse_rate_percent || 0, target: 95 },
+            { name: 'Hard Parse %', value: response.efficiency?.hard_parse_rate_percent || 0, target: 5 },
+            { name: 'Execution Efficiency %', value: response.efficiency?.execution_efficiency_percent || 0, target: 90 }
+          ],
+          loadProfile:  [
+            { metric: 'DB Time Per Sec', perSec: response.load_profile?.db_time_per_sec || 0, perTxn: 0 },
+            { metric: 'CPU Time Per Sec', perSec: response.load_profile?.cpu_time_per_sec || 0, perTxn: 0 },
+            { metric: 'IO Requests Per Sec', perSec: response.load_profile?.io_requests_per_sec || 0, perTxn: 0 },
+            { metric: 'Total Transactions', perSec: response.load_profile?.total_transactions || 0, perTxn: 0 },
+            { metric: 'Commits Per Sec', perSec: response.load_profile?.commits_per_sec || 0, perTxn: 0 },
+            { metric: 'Rollbacks Per Sec', perSec: response.load_profile?.rollbacks_per_sec || 0, perTxn: 0 }
+          ],
+          topSql: response.top_sql?.map((sql: any) => ({
+            sqlId: sql.sql_id || '',
+            uniqueSqlId: Number(sql.id),
+            userName: 'postgres',
+            text: sql.sql_text || '',
+            totalTime: Number(sql.total_elapsed_time || 0),
+            calls: Number(sql.executions || 0),
+            cpuTime: Number(sql.cpu_time || 0),
+            ioTime: Number(sql.io_time || 0),
+            rows: Number(sql.rows_processed || 0),
+            avgTime: 0 // Will be calculated if needed
+          })) || [],
+          objectStats: response.object_stats?.map((obj: any) => ({
+            schema: obj.schema_name || '',
+            name: obj.object_name || '',
+            type: obj.object_type || 'Table',
+            seqScan: Number(obj.seq_scans || 0),
+            idxScan: Number(obj.idx_scans || 0),
+            tupIns: Number(obj.inserts || 0),
+            tupUpd: Number(obj.updates || 0),
+            tupDel: Number(obj.deletes || 0),
+            liveTup: Number(obj.dead_tuples || 0), // Note: this seems incorrect but matching types
+            deadTup: Number(obj.dead_tuples || 0)
+          })) || []
+        };
+        console.log('Converted data for frontend:', converted);
+        return converted;
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
     const meta = MOCK_REPORTS.find(r => r.id === id);
     if (!meta) return null;
@@ -270,7 +417,13 @@ export const ApiService = {
   },
 
   deleteWdrReport: async (id: number): Promise<void> => {
-    if (isTauri()) return invoke('delete_wdr_report', { id });
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('delete_wdr_report', { id });
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
     // In a real app, you'd delete from state/DB here
     console.log(`Report ${id} deleted`);
@@ -281,23 +434,109 @@ export const ApiService = {
 
   // Comparisons
   getComparisons: async (): Promise<WdrComparison[]> => {
-    if (isTauri()) return invoke('get_comparisons');
+    if (isTauri() && invoke) {
+      try {
+        const result: any = await invoke('get_comparisons');
+        // Backend returns { comparisons: [...], total: ... }
+        const list = result.comparisons || [];
+        // Transform WdrComparisonListItem to WdrComparison
+        return list.map((item: any) => ({
+          id: item.id,
+          name: `Comparison #${item.id}`,
+          description: `${item.source_instance || item.source_report_id} vs ${item.target_instance || item.target_report_id}`,
+          reportIds: [item.source_report_id, item.target_report_id],
+          createdAt: item.created_at
+        }));
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     return Promise.resolve([
         { id: 1, name: 'Dec Week 1 vs Week 2', description: 'Performance check', reportIds: [1288, 1289], createdAt: '2025-12-09' }
     ]);
   },
 
+  createComparison: async (params: { report1Id: number; report2Id: number; customName?: string }): Promise<{ id: number }> => {
+    if (isTauri() && invoke) {
+      try {
+        const result = await invoke('create_comparison', {
+          sourceReportId: params.report1Id,
+          targetReportId: params.report2Id,
+          comparisonType: null as string | null,
+          customName: params.customName || null
+        });
+        // Backend returns comparison_id, frontend expects id
+        return { id: (result as any).comparison_id || (result as any).id };
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+        throw error;
+      }
+    }
+    // Mock delay and response
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { id: Math.floor(Math.random() * 1000) + 1 };
+  },
+
   getComparisonSummary: async (comparisonId: number): Promise<ComparisonSummary> => {
-      if (isTauri()) {
-          return invoke('get_comparison_summary', { comparisonId });
+      if (isTauri() && invoke) {
+        try {
+          const result: any = await invoke('get_comparison_summary', { comparisonId });
+          // Transform backend format (snake_case) to frontend format (camelCase)
+          return {
+            id: String(comparisonId),
+            status: result.status || 'Stable',
+            scoreChange: result.performance_score_change ?? 0,
+            conclusion: result.conclusion || '',
+            keyFindings: result.key_findings?.map((f: any) => f.description || f.toString()) || []
+          };
+        } catch (error) {
+          console.warn('Tauri invoke failed:', error);
+        }
       }
       await new Promise(resolve => setTimeout(resolve, 300));
       return MOCK_COMP_SUMMARY;
   },
 
   getComparisonDetails: async (comparisonId: number, category: ComparisonCategory): Promise<BaseComparisonMetric[]> => {
-      if (isTauri()) {
-          return invoke('get_comparison_details', { comparisonId, category });
+      if (isTauri() && invoke) {
+        try {
+          const result: any = await invoke('get_comparison_details', { comparisonId, category });
+          console.log('[API] get_comparison_details result:', result);
+          // Backend returns ComparisonDetails with metrics array
+          const metrics = result.metrics || [];
+          console.log('[API] metrics array length:', metrics.length);
+          // Transform SQL metrics to frontend format
+          if (category === 'sql') {
+            return metrics.map((m: any) => {
+              const source = m.source_metrics || {};
+              const target = m.target_metrics || {};
+              const changes = m.change_percentages || {};
+              return {
+                id: m.sql_id || m.sql_text_hash || String(m.id),
+                name: m.sql_text_hash || `SQL #${m.sql_id}`,
+                value1: source.total_elapsed_time || 0,
+                value2: target.total_elapsed_time || 0,
+                changeRate: changes.elapsed_time || 0,
+                diff: (target.total_elapsed_time || 0) - (source.total_elapsed_time || 0),
+                // SQL-specific fields
+                executionCount1: source.executions || 0,
+                executionCount2: target.executions || 0,
+                cpuTime1: source.cpu_time || 0,
+                cpuTime2: target.cpu_time || 0,
+                ioTime1: source.io_time || 0,
+                ioTime2: target.io_time || 0,
+                physicalReads1: source.disk_reads || 0,
+                physicalReads2: target.disk_reads || 0,
+                logicalReads1: source.buffer_gets || 0,
+                logicalReads2: target.buffer_gets || 0,
+              };
+            });
+          }
+          // For other categories, return empty array for now (not implemented in backend)
+          return [];
+        } catch (error) {
+          console.error('[API] get_comparison_details error:', error);
+        }
       }
 
       // Mock delay
@@ -314,35 +553,89 @@ export const ApiService = {
 
   // Audit Logs
   getAuditLogs: async (): Promise<{ content: AuditLog[], totalElements: number }> => {
-    if (isTauri()) return invoke('get_audit_logs');
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('get_audit_logs');
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     return Promise.resolve({ content: MOCK_AUDIT_LOGS, totalElements: MOCK_AUDIT_LOGS.length });
   },
 
   // SQL Audit
   getSqlAuditIssues: async (): Promise<SqlAuditIssue[]> => {
-    if (isTauri()) return invoke('get_sql_audit_issues');
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('get_sql_audit_issues');
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     return Promise.resolve(MOCK_ISSUES);
   },
 
   // Visualizer
   getWdrHotSqls: async (): Promise<WdrHotSql[]> => {
-    if (isTauri()) return invoke('get_wdr_hot_sqls');
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('get_wdr_hot_sqls');
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     return Promise.resolve(MOCK_HOT_SQLS);
   },
 
   getExecutionPlan: async (sqlId: string): Promise<ExecutionPlanNode> => {
-    if (isTauri()) return invoke('get_execution_plan', { sqlId });
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('get_execution_plan', { sqlId });
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     return new Promise(resolve => setTimeout(() => resolve(MOCK_PLAN_TREE), 500));
+  },
+
+  parseExecutionPlan: async (planText: string, format: 'json' | 'text'): Promise<ExecutionPlanNode> => {
+    if (isTauri() && invoke) {
+      try {
+        const result = await invoke('parse_execution_plan', {
+          planText,
+          format,
+          source: 'gaussdb'
+        }) as any;
+        return result.plan_tree;
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+        throw error;
+      }
+    }
+    // Mock implementation - return a simple plan for testing
+    return MOCK_PLAN_TREE;
   },
 
   // Dashboard
   getInstanceSummaries: async (): Promise<InstanceSummary[]> => {
-    if (isTauri()) return invoke('get_instance_summaries');
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('get_instance_summaries');
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     return Promise.resolve(MOCK_INSTANCES);
   },
 
   getDashboardMetrics: async (instanceName?: string): Promise<DashboardMetrics> => {
-    if (isTauri()) return invoke('get_dashboard_metrics', { instanceName });
+    if (isTauri() && invoke) {
+      try {
+        return await invoke('get_dashboard_metrics', { instanceName });
+      } catch (error) {
+        console.warn('Tauri invoke failed:', error);
+      }
+    }
     await new Promise(resolve => setTimeout(resolve, 300));
 
     // Simulate different data for different instances

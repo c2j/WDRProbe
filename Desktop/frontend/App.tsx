@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import Dashboard from './pages/Dashboard';
 import ReportManagement from './pages/ReportManagement';
 import ReportDetail from './pages/ReportDetail';
@@ -13,7 +14,8 @@ import { I18nProvider } from './context/I18nContext';
 
 const App: React.FC = () => {
   return (
-    <I18nProvider>
+    <ErrorBoundary>
+      <I18nProvider>
         <HashRouter>
           <Layout>
             <Routes>
@@ -28,7 +30,8 @@ const App: React.FC = () => {
             </Routes>
           </Layout>
         </HashRouter>
-    </I18nProvider>
+      </I18nProvider>
+    </ErrorBoundary>
   );
 };
 

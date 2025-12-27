@@ -69,31 +69,45 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const loadInitData = async () => {
+      try {
         const insts = await ApiService.getInstanceSummaries();
-        setInstances(insts);
+        setInstances(insts || []);
         const reps = await ApiService.getWdrReports();
-        setRecentReports(reps);
+        setRecentReports(reps || []);
+      } catch (error) {
+        console.error('Failed to load initial data:', error);
+        // Ensure state is always arrays
+        setInstances([]);
+        setRecentReports([]);
+      }
     };
     loadInitData();
   }, []);
 
   useEffect(() => {
     const loadMetrics = async () => {
+      try {
         const data = await ApiService.getDashboardMetrics(selectedInstance || undefined);
         setMetrics(data);
+      } catch (error) {
+        console.error('Failed to load metrics:', error);
+        setMetrics(null);
+      }
     };
     loadMetrics();
   }, [selectedInstance]);
 
-  const filteredReports = selectedInstance 
-    ? recentReports.filter(r => r.instanceName === selectedInstance)
-    : recentReports;
+  const filteredReports = Array.isArray(recentReports) ?
+    (selectedInstance
+      ? recentReports.filter(r => r.instanceName === selectedInstance)
+      : recentReports)
+    : [];
 
   // Localize pie data names
-  const pieData = metrics?.healthDistribution.map(item => ({
+  const pieData = metrics?.healthDistribution?.map(item => ({
       ...item,
       name: t(`dash.${item.name.toLowerCase()}`)
-  }));
+  })) || [];
 
   return (
     <div className="space-y-6">
@@ -162,7 +176,7 @@ const Dashboard: React.FC = () => {
                     paddingAngle={5}
                     dataKey="value"
                     >
-                    {pieData.map((entry, index) => (
+                    {pieData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
                     </Pie>
@@ -200,7 +214,7 @@ const Dashboard: React.FC = () => {
             <AlertTriangle size={20} className="text-orange-500 mr-2" /> {t('dash.hotIssues')}
           </h3>
           <ul className="space-y-4">
-            {metrics?.hotIssues.map((issue, idx) => (
+            {(metrics?.hotIssues || []).map((issue, idx) => (
                 <li key={idx} className="flex items-center justify-between pb-3 border-b border-gray-50 last:border-0">
                     <div>
                         <p className="text-sm font-medium text-gray-800">{issue.title}</p>
@@ -209,7 +223,7 @@ const Dashboard: React.FC = () => {
                     <button className="text-blue-600 text-sm hover:underline">{t('dash.details')}</button>
                 </li>
             ))}
-            {!metrics?.hotIssues.length && <li className="text-gray-400 text-sm italic">No hot issues detected.</li>}
+            {(!metrics?.hotIssues || metrics?.hotIssues?.length === 0) && <li className="text-gray-400 text-sm italic">No hot issues detected.</li>}
           </ul>
         </div>
 

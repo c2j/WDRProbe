@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WDR Parser Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .info {
+            color: #666;
+            font-size: 14px;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .stats {
+            margin-top: 10px;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WDR Parser Test - Object Statistics</h1>
+        <p class="info">Test the new comprehensive WDR parser with object statistics</p>
+
+        <div class="test-section">
+            <h2>Test 1: Import WDR Report</h2>
+            <button onclick="testImportReport()">Import Test Report</button>
+            <div id="import-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 2: View Report Detail</h2>
+            <button onclick="testGetReportDetail()">Get Report Detail</button>
+            <div id="detail-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 3: List All Reports</h2>
+            <button onclick="testListReports()">List Reports</button>
+            <div id="list-result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Test data - sample WDR report content
+        const testReportContent = `<html>
+<head><title>WDR Report</title></head>
+<body>
+<table summary="This table displays snapshot info">
+<tr><td>1</td><td>2024-01-01 10:00:00</td><td>2024-01-01 11:00:00</td></tr>
+<tr><td>2</td><td>2024-01-01 11:00:00</td><td>2024-01-01 12:00:00</td></tr>
+</table>
+
+<table summary="This table displays Object stats">
+<tr>
+<th>Schema</th>
+<th>Name</th>
+<th>Object Type</th>
+<th>Total Scans</th>
+<th>Seq Scans</th>
+<th>Idx Scans</th>
+<th>Seq Reads</th>
+<th>Idx Reads</th>
+<th>Inserts</th>
+<th>Updates</th>
+<th>Deletes</th>
+<th>Dead Tuples</th>
+</tr>
+<tr>
+<td>public</td>
+<td>users</td>
+<td>table</td>
+<td>15234</td>
+<td>1200</td>
+<td>14034</td>
+<td>48000</td>
+<td>280680</td>
+<td>2340</td>
+<td>5670</td>
+<td>120</td>
+<td>450</td>
+</tr>
+<tr>
+<td>public</td>
+<td>orders</td>
+<td>table</td>
+<td>8967</td>
+<td>890</td>
+<td>8077</td>
+<td>35600</td>
+<td>161540</td>
+<td>1234</td>
+<td>3456</td>
+<td>89</td>
+<td>234</td>
+</tr>
+</table>
+
+<table summary="This table displays User table IO activity ordered by reads">
+<tr>
+<th>Schema</th>
+<th>Name</th>
+<th>Object Type</th>
+<th>Heap Blks Read</th>
+<th>Heap Blks Hit</th>
+<th>Heap Blks Hit Ratio</th>
+<th>Idx Blks Read</th>
+<th>Idx Blks Hit</th>
+<th>Idx Blks Hit Ratio</th>
+</tr>
+<tr>
+<td>public</td>
+<td>users</td>
+<td>table</td>
+<td>2340</td>
+<td>45670</td>
+<td>95.12%</td>
+<td>5670</td>
+<td>275010</td>
+<td>97.98%</td>
+</tr>
+</table>
+
+<table summary="This table displays Database Stat">
+<tr>
+<th>DB Name</th>
+<th>Backends</th>
+<th>Xact Commit</th>
+<th>Xact Rollback</th>
+<th>Blks Read</th>
+<th>Blks Hit</th>
+<th>Tuple Returned</th>
+<th>Tuple Fetched</th>
+<th>Tuple Inserted</th>
+<th>Tuple Updated</th>
+<th>Tuple Deleted</th>
+<th>Conflicts</th>
+<th>Temp Files</th>
+<th>Temp Bytes</th>
+<th>Deadlocks</th>
+<th>Blk Read Time</th>
+<th>Blk Write Time</th>
+<th>Stats Reset</th>
+</tr>
+<tr>
+<td>testdb</td>
+<td>25</td>
+<td>456789</td>
+<td>1234</td>
+<td>23456</td>
+<td>567890</td>
+<td>1234567</td>
+<td>890123</td>
+<td>12345</td>
+<td>67890</td>
+<td>2345</td>
+<td>0</td>
+<td>12</td>
+<td>1048576</td>
+<td>0</td>
+<td>234.56</td>
+<td>123.45</td>
+<td>2024-01-01 00:00:00</td>
+</tr>
+</table>
+
+<td>Buffer Hit %</td>
+<td>96.5</td>
+</body>
+</html>`;
+
+        // Helper function to simulate API calls
+        async function simulateAPICall(endpoint, data) {
+            // In a real test, you would use the actual Tauri API
+            // For now, we'll simulate the expected responses
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    if (endpoint === 'import_wdr_report') {
+                        resolve({
+                            success: true,
+                            data: {
+                                id: 1,
+                                instanceName: 'TestInstance',
+                                generationTime: new Date().toISOString(),
+                                snapshotStart: '2024-01-01 10:00:00',
+                                snapshotEnd: '2024-01-01 12:00:00',
+                                status: 'Success'
+                            }
+                        });
+                    } else if (endpoint === 'get_wdr_report_detail') {
+                        resolve({
+                            success: true,
+                            data: {
+                                id: 1,
+                                instanceName: 'TestInstance',
+                                generationTime: new Date().toISOString(),
+                                snapshotStart: '2024-01-01 10:00:00',
+                                snapshotEnd: '2024-01-01 12:00:00',
+                                status: 'Success',
+                                objectStats: [
+                                    {
+                                        schemaName: 'public',
+                                        objectName: 'users',
+                                        objectType: 'table',
+                                        totalScans: 15234,
+                                        seqScans: 1200,
+                                        idxScans: 14034,
+                                        seqReads: 48000,
+                                        idxReads: 280680,
+                                        inserts: 2340,
+                                        updates: 5670,
+                                        deletes: 120,
+                                        deadTuples: 450,
+                                        needsVacuum: true
+                                    },
+                                    {
+                                        schemaName: 'public',
+                                        objectName: 'orders',
+                                        objectType: 'table',
+                                        totalScans: 8967,
+                                        seqScans: 890,
+                                        idxScans: 8077,
+                                        seqReads: 35600,
+                                        idxReads: 161540,
+                                        inserts: 1234,
+                                        updates: 3456,
+                                        deletes: 89,
+                                        deadTuples: 234,
+                                        needsVacuum: false
+                                    }
+                                ],
+                                cacheIoStats: [
+                                    {
+                                        schemaName: 'public',
+                                        objectName: 'users',
+                                        objectType: 'table',
+                                        heapBlksRead: 2340,
+                                        heapBlksHit: 45670,
+                                        heapBlksHitRatio: 95.12,
+                                        idxBlksRead: 5670,
+                                        idxBlksHit: 275010,
+                                        idxBlksHitRatio: 97.98
+                                    }
+                                ],
+                                databaseStats: [
+                                    {
+                                        dbName: 'testdb',
+                                        backends: 25,
+                                        xactCommit: 456789,
+                                        xactRollback: 1234,
+                                        blksRead: 23456,
+                                        blksHit: 567890,
+                                        tupleReturned: 1234567,
+                                        tupleFetched: 890123,
+                                        tupleInserted: 12345,
+                                        tupleUpdated: 67890,
+                                        tupleDeleted: 2345,
+                                        conflicts: 0,
+                                        tempFiles: 12,
+                                        tempBytes: 1048576,
+                                        deadlocks: 0,
+                                        blkReadTime: 234.56,
+                                        blkWriteTime: 123.45
+                                    }
+                                ]
+                            }
+                        });
+                    } else if (endpoint === 'get_wdr_reports') {
+                        resolve({
+                            success: true,
+                            data: {
+                                reports: [
+                                    {
+                                        id: 1,
+                                        instanceName: 'TestInstance',
+                                        generationTime: new Date().toISOString(),
+                                        snapshotStart: '2024-01-01 10:00:00',
+                                        snapshotEnd: '2024-01-01 12:00:00',
+                                        status: 'Success'
+                                    }
+                                ],
+                                total: 1
+                            }
+                        });
+                    }
+                }, 500);
+            });
+        }
+
+        async function testImportReport() {
+            const resultDiv = document.getElementById('import-result');
+            resultDiv.innerHTML = '<p>Importing test report...</p>';
+
+            try {
+                // Simulate importing a WDR report
+                const response = await simulateAPICall('import_wdr_report', {
+                    filePath: '/tmp/test_wdr.html',
+                    instanceName: 'TestInstance'
+                });
+
+                if (response.success) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✓ Report imported successfully!</p>
+                        <div class="stats">
+                            <div class="stat-item">
+                                <span>Report ID:</span>
+                                <span>${response.data.id}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>Instance:</span>
+                                <span>${response.data.instanceName}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>Snapshot Period:</span>
+                                <span>${response.data.snapshotStart} - ${response.data.snapshotEnd}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<p class="error">✗ Failed to import report</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testGetReportDetail() {
+            const resultDiv = document.getElementById('detail-result');
+            resultDiv.innerHTML = '<p>Fetching report detail...</p>';
+
+            try {
+                const response = await simulateAPICall('get_wdr_report_detail', {
+                    reportId: 1
+                });
+
+                if (response.success) {
+                    const data = response.data;
+                    resultDiv.innerHTML = `
+                        <p class="success">✓ Report detail retrieved successfully!</p>
+                        <h3>Object Statistics (${data.objectStats.length} objects):</h3>
+                        ${data.objectStats.map(stat => `
+                            <div class="test-section">
+                                <h4>${stat.schemaName}.${stat.objectName} (${stat.objectType})</h4>
+                                <div class="stats">
+                                    <div class="stat-item">
+                                        <span>Total Scans:</span>
+                                        <span>${stat.totalScans.toLocaleString()}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Index Scans:</span>
+                                        <span>${stat.idxScans.toLocaleString()}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Seq Reads:</span>
+                                        <span>${stat.seqReads.toLocaleString()}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Idx Reads:</span>
+                                        <span>${stat.idxReads.toLocaleString()}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Inserts/Updates/Deletes:</span>
+                                        <span>${stat.inserts}/${stat.updates}/${stat.deletes}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Dead Tuples:</span>
+                                        <span>${stat.deadTuples.toLocaleString()}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Needs Vacuum:</span>
+                                        <span>${stat.needsVacuum ? 'Yes' : 'No'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                        <h3>Cache IO Statistics (${data.cacheIoStats.length} objects):</h3>
+                        ${data.cacheIoStats.map(stat => `
+                            <div class="test-section">
+                                <h4>${stat.schemaName}.${stat.objectName}</h4>
+                                <div class="stats">
+                                    <div class="stat-item">
+                                        <span>Heap Hit Ratio:</span>
+                                        <span>${stat.heapBlksHitRatio.toFixed(2)}%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Index Hit Ratio:</span>
+                                        <span>${stat.idxBlksHitRatio.toFixed(2)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                        <h3>Database Statistics (${data.databaseStats.length} databases):</h3>
+                        ${data.databaseStats.map(stat => `
+                            <div class="test-section">
+                                <h4>${stat.dbName}</h4>
+                                <div class="stats">
+                                    <div class="stat-item">
+                                        <span>Backends:</span>
+                                        <span>${stat.backends}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Transactions (Commit/Rollback):</span>
+                                        <span>${stat.xactCommit.toLocaleString()}/${stat.xactRollback.toLocaleString()}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>Block Hit Ratio:</span>
+                                        <span>${((stat.blksHit / (stat.blksRead + stat.blksHit)) * 100).toFixed(2)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<p class="error">✗ Failed to get report detail</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testListReports() {
+            const resultDiv = document.getElementById('list-result');
+            resultDiv.innerHTML = '<p>Listing reports...</p>';
+
+            try {
+                const response = await simulateAPICall('get_wdr_reports', {});
+
+                if (response.success) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✓ Found ${response.data.total} report(s)!</p>
+                        ${response.data.reports.map(report => `
+                            <div class="test-section">
+                                <div class="stat-item">
+                                    <span>Report ID:</span>
+                                    <span>${report.id}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span>Instance:</span>
+                                    <span>${report.instanceName}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span>Snapshot Period:</span>
+                                    <span>${report.snapshotStart} - ${report.snapshotEnd}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span>Status:</span>
+                                    <span>${report.status}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<p class="error">✗ Failed to list reports</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">✗ Error: ${error.message}</p>`;
+            }
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            console.log('WDR Parser Test Page Loaded');
+            console.log('Test report content:', testReportContent);
+        });
+    </script>
+</body>
+</html>

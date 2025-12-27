@@ -1,16 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/1",
   "package": {
-    "productName": "Tauri React App",
+    "productName": "WDRProbe Desktop",
     "version": "0.1.0"
   },
   "tauri": {
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "com.example.tauri-react-app",
-      "publisher": "Your Name",
-      "copyright": "Copyright © 2025 Your Name. All rights reserved.",
+      "identifier": "com.wdrprobe.desktop",
+      "publisher": "Chen Jianjun",
+      "copyright": "Copyright © 2025 C2J. All rights reserved.",
       "category": "DeveloperTool",
       "shortDescription": "A Tauri + React application",
       "longDescription": "This is a starter template for building Tauri applications with React and TypeScript."
@@ -20,11 +20,30 @@
       "shell": {
         "all": false,
         "open": true
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "createDir": true,
+        "copyFile": true,
+        "removeDir": true,
+        "removeFile": true,
+        "renameFile": true,
+        "exists": true
+      },
+      "path": {
+        "all": true
+      },
+      "dialog": {
+        "all": false,
+        "open": true,
+        "save": true
       }
     },
     "windows": [
       {
-        "title": "Tauri React App",
+        "title": "WDRProbe Desktop",
         "width": 1200,
         "height": 800,
         "resizable": true,

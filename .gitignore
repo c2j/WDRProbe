@@ -30,3 +30,21 @@ coverage/
 
 # Tauri
 Desktop/src-tauri/target/
+
+# Rust
+**/target/
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*
+*.profraw
+*.pdb
+Cargo.lock
+
+# Rust IDE
+*.idea/
+*.iml
+*.swp
+*.swo
+*~

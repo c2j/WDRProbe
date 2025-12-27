@@ -7,6 +7,30 @@ target/
 *.tmp
 *.temp
 
+# Rust specific
+*.rs.bk
+*.rlib
+*.profraw
+*.prof*
+debug/
+release/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# Environment files
+.env
+.env*
+!.env.example
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -15,3 +39,11 @@ target/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+tarpaulin-report.html
+lcov.info

@@ -1,0 +1,159 @@
+<html>
+<head><title>WDR Report - Test Instance</title></head>
+<body>
+<h1>Workload Diagnosis Report</h1>
+
+<table summary="This table displays snapshot info">
+<tr><th>Snap Id</th><th>Snap Time</th><th>Sessions</th><th>Cursors/Session</th></tr>
+<tr><td>1</td><td>2024-01-01 10:00:00</td><td>25</td><td>15</td></tr>
+<tr><td>2</td><td>2024-01-01 12:00:00</td><td>28</td><td>18</td></tr>
+</table>
+
+<h2>Object Statistics</h2>
+<table summary="This table displays Object stats">
+<tr>
+<th>Schema</th>
+<th>Name</th>
+<th>Object Type</th>
+<th>Total Scans</th>
+<th>Seq Scans</th>
+<th>Idx Scans</th>
+<th>Seq Reads</th>
+<th>Idx Reads</th>
+<th>Inserts</th>
+<th>Updates</th>
+<th>Deletes</th>
+<th>Dead Tuples</th>
+</tr>
+<tr>
+<td>public</td>
+<td>users</td>
+<td>TABLE</td>
+<td>15234</td>
+<td>1200</td>
+<td>14034</td>
+<td>48000</td>
+<td>280680</td>
+<td>2340</td>
+<td>5670</td>
+<td>120</td>
+<td>450</td>
+</tr>
+<tr>
+<td>public</td>
+<td>orders</td>
+<td>TABLE</td>
+<td>8967</td>
+<td>890</td>
+<td>8077</td>
+<td>35600</td>
+<td>161540</td>
+<td>1234</td>
+<td>3456</td>
+<td>89</td>
+<td>234</td>
+</tr>
+<tr>
+<td>public</td>
+<td>idx_users_email</td>
+<td>INDEX</td>
+<td>14034</td>
+<td>0</td>
+<td>14034</td>
+<td>0</td>
+<td>280680</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</table>
+
+<h2>Cache IO Statistics</h2>
+<table summary="This table displays User table IO activity ordered by reads">
+<tr>
+<th>Schema</th>
+<th>Name</th>
+<th>Object Type</th>
+<th>Heap Blks Read</th>
+<th>Heap Blks Hit</th>
+<th>Heap Blks Hit Ratio</th>
+<th>Idx Blks Read</th>
+<th>Idx Blks Hit</th>
+<th>Idx Blks Hit Ratio</th>
+</tr>
+<tr>
+<td>public</td>
+<td>users</td>
+<td>TABLE</td>
+<td>2340</td>
+<td>45670</td>
+<td>95.12%</td>
+<td>5670</td>
+<td>275010</td>
+<td>97.98%</td>
+</tr>
+<tr>
+<td>public</td>
+<td>orders</td>
+<td>TABLE</td>
+<td>1560</td>
+<td>28940</td>
+<td>94.89%</td>
+<td>3456</td>
+<td>168234</td>
+<td>97.99%</td>
+</tr>
+</table>
+
+<h2>Database Statistics</h2>
+<table summary="This table displays Database Stat">
+<tr>
+<th>DB Name</th>
+<th>Backends</th>
+<th>Xact Commit</th>
+<th>Xact Rollback</th>
+<th>Blks Read</th>
+<th>Blks Hit</th>
+<th>Tuple Returned</th>
+<th>Tuple Fetched</th>
+<th>Tuple Inserted</th>
+<th>Tuple Updated</th>
+<th>Tuple Deleted</th>
+<th>Conflicts</th>
+<th>Temp Files</th>
+<th>Temp Bytes</th>
+<th>Deadlocks</th>
+<th>Blk Read Time</th>
+<th>Blk Write Time</th>
+<th>Stats Reset</th>
+</tr>
+<tr>
+<td>testdb</td>
+<td>25</td>
+<td>456789</td>
+<td>1234</td>
+<td>23456</td>
+<td>567890</td>
+<td>1234567</td>
+<td>890123</td>
+<td>12345</td>
+<td>67890</td>
+<td>2345</td>
+<td>0</td>
+<td>12</td>
+<td>1048576</td>
+<td>0</td>
+<td>234.56</td>
+<td>123.45</td>
+<td>2024-01-01 00:00:00</td>
+</tr>
+</table>
+
+<h2>Efficiency Metrics</h2>
+<table>
+<tr><td>Buffer Hit %</td><td>96.5</td></tr>
+</table>
+
+</body>
+</html>

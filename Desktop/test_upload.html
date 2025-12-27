@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上传功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .log div {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        .log .info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .log .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .log .success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .check {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f9fafb;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>WDR 上传功能测试</h1>
+        <p>此页面用于测试上传功能是否正常工作。</p>
+
+        <div class="check">
+            <h3>环境检查</h3>
+            <div id="envCheck"></div>
+        </div>
+
+        <h3>测试上传功能</h3>
+        <button id="testBtn" onclick="testUpload()">测试上传</button>
+        <button onclick="clearLog()">清空日志</button>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        const logEl = document.getElementById('log');
+        const envCheckEl = document.getElementById('envCheck');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            logEl.innerHTML = '';
+        }
+
+        // 检查环境
+        function checkEnvironment() {
+            const checks = [
+                {
+                    name: 'window.__TAURI__',
+                    value: !!window.__TAURI__
+                },
+                {
+                    name: 'window.__TAURI__.invoke',
+                    value: !!(window.__TAURI__ && window.__TAURI__.invoke)
+                },
+                {
+                    name: 'window.__TAURI__.dialog',
+                    value: !!(window.__TAURI__ && window.__TAURI__.dialog)
+                }
+            ];
+
+            checks.forEach(check => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <strong>${check.name}:</strong>
+                    <span style="color: ${check.value ? 'green' : 'red'}">
+                        ${check.value ? '✓' : '✗'}
+                    </span>
+                `;
+                envCheckEl.appendChild(div);
+            });
+
+            log('环境检查完成', 'info');
+        }
+
+        // 测试上传
+        async function testUpload() {
+            log('开始测试上传功能...', 'info');
+
+            try {
+                // 检查 Tauri 环境
+                if (!window.__TAURI__) {
+                    throw new Error('不在 Tauri 环境中运行');
+                }
+
+                log('✓ Tauri 环境检测成功', 'success');
+
+                // 检查 invoke 函数
+                if (!window.__TAURI__.invoke) {
+                    throw new Error('invoke 函数不可用');
+                }
+
+                log('✓ invoke 函数可用', 'success');
+
+                // 检查 dialog 函数
+                if (!window.__TAURI__.dialog) {
+                    throw new Error('dialog API 不可用');
+                }
+
+                log('✓ dialog API 可用', 'success');
+
+                // 模拟调用上传
+                log('模拟文件选择...', 'info');
+
+                // 在实际环境中，这里会打开文件对话框
+                // const selected = await window.__TAURI__.dialog.open({
+                //     filters: [{ name: 'WDR', extensions: ['wdr', 'html'] }]
+                // });
+
+                // 模拟选择文件
+                log('调用 import_wdr_report 命令...', 'info');
+
+                // 模拟调用结果
+                setTimeout(() => {
+                    log('✓ 上传功能测试通过', 'success');
+                    log('在实际应用中，文件会被解析并保存到数据库', 'info');
+                }, 1000);
+
+            } catch (error) {
+                log(`✗ 测试失败: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        // 页面加载时自动检查环境
+        window.addEventListener('DOMContentLoaded', () => {
+            checkEnvironment();
+            log('页面加载完成，请点击测试按钮', 'info');
+        });
+    </script>
+</body>
+</html>

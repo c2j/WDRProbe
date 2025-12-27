@@ -1,13 +1,18 @@
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/commands
+// WDRProbe Desktop Library
+// Core library for database operations, models, and utilities
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {name}! You've been greeted from Rust!")
-}
+pub mod commands;
+pub mod database;
+pub mod models;
+pub mod parsers;
+pub mod progress;
+pub mod utils;
 
-#[cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
+// Re-export commonly used types
+pub use database::{init_database, initialize_schema, DatabaseOperations, DatabasePool};
+pub use models::*;
+pub use progress::*;
+pub use utils::*;
 
-pub type Result<T> = std::result::Result<T, anyhow::Error>;
+// Result type for the library
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
