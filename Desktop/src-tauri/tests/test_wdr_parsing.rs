@@ -6,9 +6,15 @@ mod tests {
 
     #[test]
     fn test_parse_wdr_sqls() {
-        let file_path = "/Users/c2j/Desktop/Desktop_Projects/DB/WDRProbe/example/opengauss_v1.html";
+        let file_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../example/opengauss_v1.html");
 
-        match parse_top_sqls(file_path) {
+        if !file_path.exists() {
+            println!("Skipping test: Example file not found at {}", file_path.display());
+            return;
+        }
+
+        match parse_top_sqls(file_path.to_str().unwrap()) {
             Ok(sqls) => {
                 println!("成功解析 {} 条SQL", sqls.len());
 

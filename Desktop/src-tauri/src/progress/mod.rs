@@ -49,7 +49,8 @@ impl ProgressState {
 
     pub fn elapsed_ms(&self) -> i64 {
         let now = chrono::Utc::now();
-        now.signed_duration_since(self.start_time).num_milliseconds()
+        now.signed_duration_since(self.start_time)
+            .num_milliseconds()
     }
 }
 
@@ -94,7 +95,10 @@ impl ProgressReporter {
     /// Get a message with current progress
     pub fn message(&self) -> String {
         let state = self.state.lock().unwrap();
-        format!("{}: {}/{}", state.step_name, state.current_step, state.total_steps)
+        format!(
+            "{}: {}/{}",
+            state.step_name, state.current_step, state.total_steps
+        )
     }
 
     /// Mark the operation as complete
@@ -127,7 +131,7 @@ pub fn create_import_reporter(operation_id: String) -> ProgressReporter {
     ProgressReporter::new(
         operation_id,
         "import_wdr".to_string(),
-        5,  // Parse, validate, insert SQL, insert metadata, complete
+        5, // Parse, validate, insert SQL, insert metadata, complete
         true,
     )
 }
@@ -136,7 +140,7 @@ pub fn create_comparison_reporter(operation_id: String) -> ProgressReporter {
     ProgressReporter::new(
         operation_id,
         "create_comparison".to_string(),
-        4,  // Load reports, match SQLs, calculate metrics, save
+        4, // Load reports, match SQLs, calculate metrics, save
         true,
     )
 }
@@ -145,7 +149,7 @@ pub fn create_audit_reporter(operation_id: String) -> ProgressReporter {
     ProgressReporter::new(
         operation_id,
         "run_audit".to_string(),
-        3,  // Load SQLs, run detection rules, save issues
+        3, // Load SQLs, run detection rules, save issues
         true,
     )
 }

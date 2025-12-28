@@ -212,7 +212,17 @@ export const ApiService = {
   getThresholdConfigs: async (): Promise<ThresholdConfig[]> => {
     if (isTauri() && invoke) {
       try {
-        return await invoke('get_threshold_configs');
+        const result = await invoke('get_threshold_configs') as { thresholds: any[], total: number };
+        // Convert backend format to frontend format
+        return (result.thresholds || []).map((t: any) => ({
+          configKey: t.config_key,
+          configName: t.description || t.config_key,
+          value: t.value,
+          unit: t.data_type || '',
+          description: t.description || '',
+          recommendRange: `${t.min_value || 0}~${t.max_value || 100}`,
+          category: t.category
+        }));
       } catch (error) {
         console.warn('Tauri invoke failed:', error);
       }
@@ -224,7 +234,12 @@ export const ApiService = {
     console.log(`Updating ${key} to ${payload.value}`);
     if (isTauri() && invoke) {
       try {
-        return await invoke('update_threshold', { key, value: payload.value });
+        return await invoke('update_threshold', {
+          configKey: key,
+          value: payload.value,
+          changedBy: 'user',
+          changeReason: 'Manual update from UI'
+        });
       } catch (error) {
         console.warn('Tauri invoke failed:', error);
       }
@@ -567,7 +582,16 @@ export const ApiService = {
   getSqlAuditIssues: async (): Promise<SqlAuditIssue[]> => {
     if (isTauri() && invoke) {
       try {
-        return await invoke('get_sql_audit_issues');
+        const result = await invoke('get_sql_audit_issues') as { issues: any[], total: number, summary: any };
+        // Convert backend format to frontend format
+        return (result.issues || []).map((issue: any) => ({
+          id: String(issue.id),
+          severity: issue.severity === 'Critical' ? 'High' : (issue.severity === 'High' || issue.severity === 'Medium' || issue.severity === 'Low' || issue.severity === 'Info' ? issue.severity : 'Medium'),
+          type: issue.issue_type || issue.title,
+          target: issue.problematic_sql || issue.title || 'Unknown',
+          time: issue.detected_at || issue.resolved_at || new Date().toISOString(),
+          status: issue.status === 'Open' ? 'Pending' : (issue.status === 'Reviewed' ? 'Processing' : (issue.status === 'Fixed' ? 'Fixed' : (issue.status === 'Whitelisted' ? 'Whitelisted' : 'Pending')))
+        }));
       } catch (error) {
         console.warn('Tauri invoke failed:', error);
       }
@@ -579,7 +603,9 @@ export const ApiService = {
   getWdrHotSqls: async (): Promise<WdrHotSql[]> => {
     if (isTauri() && invoke) {
       try {
-        return await invoke('get_wdr_hot_sqls');
+        const result = await invoke('get_wdr_hot_sqls') as { hot_sqls: WdrHotSql[], total: number };
+        // Backend returns WdrHotSqlList { hot_sqls: [...], total: number }
+        return result.hot_sqls || [];
       } catch (error) {
         console.warn('Tauri invoke failed:', error);
       }
@@ -598,7 +624,7 @@ export const ApiService = {
     return new Promise(resolve => setTimeout(() => resolve(MOCK_PLAN_TREE), 500));
   },
 
-  parseExecutionPlan: async (planText: string, format: 'json' | 'text'): Promise<ExecutionPlanNode> => {
+  parseExecutionPlan: async (planText: string, format: 'json' | 'text' | 'sql-plan'): Promise<{ plan: ExecutionPlanNode, sql?: string }> => {
     if (isTauri() && invoke) {
       try {
         const result = await invoke('parse_execution_plan', {
@@ -606,14 +632,17 @@ export const ApiService = {
           format,
           source: 'gaussdb'
         }) as any;
-        return result.plan_tree;
+        return {
+          plan: result.plan_tree,
+          sql: result.sql
+        };
       } catch (error) {
         console.warn('Tauri invoke failed:', error);
         throw error;
       }
     }
     // Mock implementation - return a simple plan for testing
-    return MOCK_PLAN_TREE;
+    return new Promise(resolve => setTimeout(() => resolve({ plan: MOCK_PLAN_TREE }), 500));
   },
 
   // Dashboard

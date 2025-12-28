@@ -33,7 +33,12 @@ pub fn parse_execution_plan_text(plan_text: &str) -> Result<ExecutionPlanNode, S
         return Err("Empty plan text".to_string());
     }
 
-    // Parse the root node from the first line
+    // Check if this is SQL+PLAN format (SQL statement + EXPLAIN output)
+    if is_sql_plan_format(&plan_text) {
+        return parse_sql_plan_format(&plan_text);
+    }
+
+    // Parse the root node from first line
     let root_line = lines.get(0).ok_or("Empty plan")?;
     let root = parse_plan_line(root_line, 0)?;
 
@@ -41,6 +46,389 @@ pub fn parse_execution_plan_text(plan_text: &str) -> Result<ExecutionPlanNode, S
     let (tree, _) = parse_children(&lines, 1, 1, root)?;
 
     Ok(tree)
+}
+
+/// Check if the text contains SQL statements with EXPLAIN output
+pub fn is_sql_plan_format(text: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    
+    // Look for patterns that indicate SQL+PLAN format
+    let mut has_sql = false;
+    let mut has_explain = false;
+    let mut has_gaussdb_prompt = false;
+    
+    for line in lines.iter().take(20) { // Check first 20 lines for indicators
+        let trimmed = line.trim().to_uppercase();
+        
+        // GaussDB prompt pattern
+        if trimmed.starts_with("GAUSSDB=#") {
+            has_gaussdb_prompt = true;
+        }
+        
+        // SQL statement patterns
+        if trimmed.starts_with("SELECT ") || 
+           trimmed.starts_with("INSERT ") ||
+           trimmed.starts_with("UPDATE ") ||
+           trimmed.starts_with("DELETE ") ||
+           trimmed.starts_with("CREATE ") ||
+           trimmed.starts_with("DROP ") ||
+           trimmed.starts_with("ALTER ") ||
+           trimmed.starts_with("WITH ") ||
+           (has_gaussdb_prompt && trimmed.contains("EXPLAIN")) {
+            has_sql = true;
+        }
+        
+        // EXPLAIN output patterns - extended for GaussDB format
+        if trimmed.contains("QUERY PLAN") || 
+           trimmed.contains("HASH JOIN") ||
+           trimmed.contains("SEQ SCAN") ||
+           trimmed.contains("INDEX SCAN") ||
+           trimmed.contains("NESTED LOOP") ||
+           trimmed.contains("STREAMING") ||
+           trimmed.contains("RETRIEVE") ||
+           trimmed.contains("HASH COND") ||
+           trimmed.contains("SPAWN ON") ||
+           trimmed.starts_with("->") ||
+           trimmed.starts_with("STREAMING") {
+            has_explain = true;
+        }
+        
+        // If we have both patterns, it's SQL+PLAN format
+        if has_sql && has_explain {
+            return true;
+        }
+    }
+    
+    false
+}
+
+/// Parse SQL+PLAN format (SQL statements with EXPLAIN output)
+pub fn parse_sql_plan_format(text: &str) -> Result<ExecutionPlanNode, String> {
+    let lines: Vec<&str> = text.lines().collect();
+    
+    // Detect format type
+    let is_tabular_format = lines.iter().any(|line| {
+        let trimmed = line.trim();
+        trimmed.starts_with("id |") || 
+        trimmed.contains("| E-rows |") ||
+        trimmed.starts_with("----+")
+    });
+    
+    if is_tabular_format {
+        parse_gaussdb_tabular_format(&lines)
+    } else {
+        parse_gaussdb_text_format(&lines)
+    }
+}
+
+/// Parse the new tabular GaussDB format
+fn parse_gaussdb_tabular_format(lines: &[&str]) -> Result<ExecutionPlanNode, String> {
+    let mut sql_part = String::new();
+    let mut plan_lines = Vec::new();
+    let mut in_predicate_section = false;
+    
+    // Extract SQL from GaussDB prompt
+    for line in lines {
+        let trimmed = line.trim().to_uppercase();
+        if trimmed.starts_with("GAUSSDB=#") && trimmed.contains("EXPLAIN") {
+            // Extract SQL from the prompt
+            sql_part = line.trim().to_string();
+            // Remove "gaussdb=# " prefix
+            sql_part = sql_part.replace("gaussdb=# ", "").trim().to_string();
+            // Remove trailing semicolon if present
+            if sql_part.ends_with(";") {
+                sql_part = sql_part[..sql_part.len()-1].trim().to_string();
+            }
+        } else if trimmed.starts_with("ID |") || trimmed.starts_with("----+") {
+            // Start collecting plan lines after header
+            in_predicate_section = false;
+        } else if trimmed.starts_with("PREDICATE INFORMATION") || trimmed.starts_with("----") {
+            in_predicate_section = true;
+        } else if !in_predicate_section && !trimmed.is_empty() && 
+                 !trimmed.starts_with("(") && 
+                 !trimmed.starts_with("gaussdb=") {
+            // Collect plan lines (skip empty lines, predicate section, and prompts)
+            if !trimmed.starts_with("SET") && !trimmed.starts_with("Time:") {
+                plan_lines.push(line.trim());
+            }
+        }
+    }
+    
+    if plan_lines.is_empty() {
+        return Err("No execution plan found in tabular format".to_string());
+    }
+    
+    // Parse the tabular format
+    let plan_tree = parse_tabular_plan_lines(&plan_lines)?;
+    
+    // Create root node with SQL
+    let mut node_details = plan_tree.node_details.clone();
+    node_details.output = Some(vec![format!("SQL: {}", sql_part)]);
+    
+    Ok(ExecutionPlanNode {
+        operation: "SQL+PLAN".to_string(),
+        cost: plan_tree.cost,
+        rows: plan_rows_from_tabular(&plan_lines),
+        actual_rows: None,
+        actual_time: None,
+        width: None,
+        children: vec![plan_tree],
+        node_details,
+        warnings: Vec::new(),
+        suggestions: Vec::new(),
+    })
+}
+
+/// Parse tabular plan lines into execution plan tree
+fn parse_tabular_plan_lines(plan_lines: &[&str]) -> Result<ExecutionPlanNode, String> {
+    let mut nodes: Vec<ExecutionPlanNode> = Vec::new();
+    
+    for line in plan_lines {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("(") {
+            continue;
+        }
+        
+        // Parse tabular format: "  1 | ->  Streaming (type: GATHER)            |     20 |      16 | 28.69"
+        if let Some(id_pos) = trimmed.find('|') {
+            let id_str = trimmed[..id_pos].trim();
+            if id_str.parse::<i32>().is_ok() {
+                // Parse operation from the tabular format
+                let remaining = &trimmed[id_pos+1..];
+                if let Some(op_pos) = remaining.find('|') {
+                    let operation_part = remaining[..op_pos].trim().to_string();
+                    let operation = extract_operation_from_tabular(&operation_part);
+                    let cost = extract_cost_from_tabular(remaining);
+                    let rows = extract_rows_from_tabular(remaining);
+                    let table_name = extract_table_from_operation(&operation_part);
+                    
+                    let node = ExecutionPlanNode {
+                        operation,
+                        cost,
+                        rows,
+                        actual_rows: None,
+                        actual_time: None,
+                        width: None,
+                        children: Vec::new(),
+                        node_details: PlanNodeDetails {
+                            output: Some(vec![operation_part]),
+                            filter: None,
+                            buffers: None,
+                            join_type: None,
+                            hash_keys: None,
+                            index_name: None,
+                            table_name,
+                        },
+                        warnings: Vec::new(),
+                        suggestions: Vec::new(),
+                    };
+                    nodes.push(node);
+                }
+            }
+        }
+    }
+    
+    // Build tree structure based on indentation
+    build_plan_tree_from_nodes(&nodes)
+}
+
+/// Extract operation name from operation part
+fn extract_operation_name(op_part: &str) -> String {
+    let cleaned = op_part.trim();
+    // Remove leading dashes and arrows like "-> "
+    let cleaned = if cleaned.starts_with("->") {
+        &cleaned[2..].trim()
+    } else {
+        cleaned
+    };
+    
+    // Extract the main operation type (before parenthesis or first space)
+    if let Some(paren_pos) = cleaned.find('(') {
+        cleaned[..paren_pos].trim().to_string()
+    } else if let Some(space_pos) = cleaned.find(' ') {
+        cleaned[..space_pos].to_string()
+    } else {
+        cleaned.to_string()
+    }
+}
+
+/// Extract table name from operation
+fn extract_table_name(op_part: &str) -> Option<String> {
+    let cleaned = op_part.trim();
+    if cleaned.starts_with("->") {
+        let op_part = &cleaned[2..].trim();
+    }
+    
+    // Look for patterns like "Seq Scan on t2" or "Index Scan using idx_name on table"
+    if let Some(on_pos) = op_part.rfind(" on ") {
+        let table = &op_part[on_pos+4..].trim();
+        if !table.is_empty() {
+            return Some(table.to_string());
+        }
+    }
+    None
+}
+
+/// Extract cost from tabular format
+fn extract_cost_from_tabular(line: &str) -> f64 {
+    let parts: Vec<&str> = line.split('|').collect();
+    if parts.len() >= 5 {
+        if let Some(cost_str) = parts.get(4) {
+            if let Ok(cost) = cost_str.trim().parse::<f64>() {
+                return cost;
+            }
+        }
+    }
+    0.0
+}
+
+/// Extract rows from tabular format
+fn extract_rows_from_tabular(line: &str) -> u64 {
+    let parts: Vec<&str> = line.split('|').collect();
+    if parts.len() >= 3 {
+        if let Some(rows_str) = parts.get(2) {
+            if let Ok(rows) = rows_str.trim().parse::<u64>() {
+                return rows;
+            }
+        }
+    }
+    0
+}
+
+/// Estimate total rows from plan lines
+fn plan_rows_from_tabular(plan_lines: &[&str]) -> u64 {
+    if !plan_lines.is_empty() {
+        if let Some(first_line) = plan_lines.first() {
+            return extract_rows_from_tabular(first_line);
+        }
+    }
+    0
+}
+
+/// Build tree structure from flat nodes list
+fn build_plan_tree_from_nodes(nodes: &[ExecutionPlanNode]) -> Result<ExecutionPlanNode, String> {
+    if nodes.is_empty() {
+        return Err("No plan nodes found".to_string());
+    }
+    
+    // For now, return the first node as root with others as children
+    // A more sophisticated implementation would build proper hierarchy
+    let mut root = nodes[0].clone();
+    
+    if nodes.len() > 1 {
+        for node in &nodes[1..] {
+            root.children.push(node.clone());
+        }
+    }
+    
+    Ok(root)
+}
+
+/// Parse the original text-based GaussDB format
+fn parse_gaussdb_text_format(lines: &[&str]) -> Result<ExecutionPlanNode, String> {
+    // ... existing code for text format
+    let mut sql_end_index = None;
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim().to_uppercase();
+        if trimmed.starts_with("GAUSSDB=#") && trimmed.contains("EXPLAIN") {
+            sql_end_index = Some(i);
+            break;
+        } else if trimmed.starts_with("EXPLAIN") || (trimmed.contains("EXPLAIN") && trimmed.ends_with(";")) {
+            sql_end_index = Some(i);
+            break;
+        }
+    }
+    
+    if sql_end_index.is_none() {
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.ends_with(";") && 
+               (trimmed.to_uppercase().starts_with("SELECT ") ||
+                trimmed.to_uppercase().starts_with("INSERT ") ||
+                trimmed.to_uppercase().starts_with("UPDATE ") ||
+                trimmed.to_uppercase().starts_with("DELETE ")) {
+                sql_end_index = Some(i);
+                break;
+            }
+        }
+    }
+    
+    let sql_end_index = sql_end_index.unwrap_or(0);
+    
+    // Extract SQL part
+    let sql_part = if sql_end_index < lines.len() {
+        let sql_line = lines[sql_end_index].trim();
+        let sql_line = sql_line.replace("gaussdb=# ", "").trim().to_string();
+        sql_line
+    } else {
+        lines[0].trim().to_string()
+    };
+    
+    // Find plan start
+    let mut plan_start_index = sql_end_index + 1;
+    while plan_start_index < lines.len() {
+        let line = lines[plan_start_index].trim();
+        let line_upper = line.to_uppercase();
+        
+        if !line.is_empty() && !line.chars().all(|c| c == '-') {
+            if line_upper.contains("QUERY PLAN") || 
+               line_upper.contains("STREAMING") ||
+               line_upper.starts_with("->") ||
+               line_upper.contains("HASH JOIN") ||
+               line_upper.contains("SEQ SCAN") ||
+               line_upper.contains("INDEX SCAN") {
+                break;
+            }
+        }
+        plan_start_index += 1;
+    }
+    
+    if plan_start_index >= lines.len() {
+        return Err("No execution plan found".to_string());
+    }
+    
+    if lines[plan_start_index].trim().to_uppercase().contains("QUERY PLAN") {
+        plan_start_index += 1;
+        while plan_start_index < lines.len() && 
+              (lines[plan_start_index].trim().is_empty() || 
+               lines[plan_start_index].trim().chars().all(|c| c == '-')) {
+            plan_start_index += 1;
+        }
+    }
+    
+    if plan_start_index >= lines.len() {
+        return Err("No execution plan content found".to_string());
+    }
+    
+    let explain_part = lines[plan_start_index..]
+        .iter()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>()
+        .join("\n");
+    
+    if explain_part.is_empty() {
+        return Err("Empty execution plan".to_string());
+    }
+    
+    let plan_tree = parse_execution_plan_text(&explain_part)?;
+    
+    // Create a root node that includes the SQL statement
+    let mut node_details = plan_tree.node_details.clone();
+    node_details.output = Some(vec![format!("SQL: {}", sql_part)]);
+    
+    Ok(ExecutionPlanNode {
+        operation: "SQL+PLAN".to_string(),
+        cost: plan_tree.cost,
+        rows: plan_tree.rows,
+        actual_rows: plan_tree.actual_rows,
+        actual_time: plan_tree.actual_time,
+        width: plan_tree.width,
+        children: vec![plan_tree],
+        node_details,
+        warnings: Vec::new(),
+        suggestions: Vec::new(),
+    })
 }
 
 /// Parse a single plan line into a node
@@ -680,6 +1068,49 @@ pub fn validate_sql_syntax(sql: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Extract operation name from tabular operation string
+fn extract_operation_from_tabular(op_str: &str) -> String {
+    let cleaned = op_str.trim();
+    
+    // Remove leading "-> " if present
+    let cleaned = if cleaned.starts_with("->") {
+        &cleaned[2..].trim()
+    } else {
+        cleaned
+    };
+    
+    // Extract main operation (before parentheses or first space)
+    if let Some(paren_pos) = cleaned.find('(') {
+        cleaned[..paren_pos].trim().to_string()
+    } else if let Some(space_pos) = cleaned.find(' ') {
+        cleaned[..space_pos].to_string()
+    } else {
+        cleaned.to_string()
+    }
+}
+
+/// Extract table name from operation string
+fn extract_table_from_operation(op_str: &str) -> Option<String> {
+    let cleaned = op_str.trim();
+    
+    // Remove leading "-> " if present
+    let cleaned = if cleaned.starts_with("->") {
+        &cleaned[2..].trim()
+    } else {
+        cleaned
+    };
+    
+    // Look for " on table_name" pattern
+    if let Some(on_pos) = cleaned.rfind(" on ") {
+        let table_part = &cleaned[on_pos + 4..].trim();
+        if !table_part.is_empty() {
+            return Some(table_part.to_string());
+        }
+    }
+    
+    None
 }
 
 #[cfg(test)]

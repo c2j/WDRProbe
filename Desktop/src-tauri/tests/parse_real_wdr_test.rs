@@ -5,7 +5,7 @@ mod parse_real_wdr_tests {
 
     #[tokio::test]
     async fn test_parse_real_wdr_file() {
-        let file_path = "/Users/c2j/Desktop/Desktop_Projects/DB/WDRProbe/example/opengauss_v1.html";
+        let file_path = "/home/c2j/workspace/DB/WDRProbe/example/opengauss_v1.html";
         let instance_name = "gaussdb".to_string();
 
         println!("\n=== Testing real WDR file parsing ===");

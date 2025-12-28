@@ -4,7 +4,7 @@
 use crate::database::{DatabaseOperations, DatabasePool};
 use crate::models::execution_plan::*;
 use crate::parsers::sql_parser::*;
-use std::sync::Arc;
+
 
 /// Get hot SQL queries from WDR reports
 #[tauri::command]
@@ -12,7 +12,7 @@ pub async fn get_wdr_hot_sqls(
     report_id: Option<i64>,
     limit: Option<i32>,
     sort_by: Option<String>,
-    pool: tauri::State<'_, Arc<DatabasePool>>,
+    pool: tauri::State<'_, DatabasePool>,
 ) -> Result<WdrHotSqlList, String> {
     println!(
         "Backend: get_wdr_hot_sqls called with report_id={:?}, limit={:?}",
@@ -83,7 +83,7 @@ pub async fn get_execution_plan(
     sql_text: Option<String>,
     plan_source: String,
     report_id: Option<i64>,
-    pool: tauri::State<'_, Arc<DatabasePool>>,
+    pool: tauri::State<'_, DatabasePool>,
 ) -> Result<ExecutionPlanResponse, String> {
     println!(
         "Backend: get_execution_plan called with sql_id={:?}, plan_source={}",
@@ -146,6 +146,7 @@ pub async fn parse_execution_plan(
     let plan_tree = match format.as_str() {
         "json" => parse_execution_plan_json(&plan_text)?,
         "text" => parse_execution_plan_text(&plan_text)?,
+        "sql-plan" => parse_sql_plan_format(&plan_text)?,
         _ => {
             return Err(format!("Unsupported format: {}", format));
         }
@@ -160,9 +161,21 @@ pub async fn parse_execution_plan(
         Vec::new()
     };
 
+    // Extract SQL from the plan if it exists
+    let sql = plan_tree.node_details.output.as_ref().and_then(|output| {
+        output.iter().find_map(|line| {
+            if line.starts_with("SQL: ") {
+                Some(line[5..].to_string()) // Remove "SQL: " prefix
+            } else {
+                None
+            }
+        })
+    });
+
     Ok(ParsedPlan {
         success: true,
         plan_tree,
+        sql,
         parse_warnings,
         parsed_at: chrono::Utc::now().to_rfc3339(),
     })
@@ -276,7 +289,7 @@ pub async fn save_execution_plan(
     plan_source: String,
     report_id: Option<i64>,
     _name: Option<String>,
-    pool: tauri::State<'_, Arc<DatabasePool>>,
+    pool: tauri::State<'_, DatabasePool>,
 ) -> Result<SavePlanResult, String> {
     println!("Backend: save_execution_plan called");
 
@@ -328,7 +341,7 @@ pub async fn get_saved_plans(
     report_id: Option<i64>,
     limit: Option<i32>,
     offset: Option<i32>,
-    pool: tauri::State<'_, Arc<DatabasePool>>,
+    pool: tauri::State<'_, DatabasePool>,
 ) -> Result<SavedPlansResponse, String> {
     println!("Backend: get_saved_plans called");
 
@@ -386,7 +399,7 @@ pub async fn get_saved_plans(
 pub async fn delete_execution_plan(
     plan_id: i64,
     confirm: bool,
-    pool: tauri::State<'_, Arc<DatabasePool>>,
+    pool: tauri::State<'_, DatabasePool>,
 ) -> Result<DeleteResult, String> {
     println!(
         "Backend: delete_execution_plan called for plan_id={}",
@@ -412,7 +425,7 @@ pub async fn delete_execution_plan(
 pub async fn generate_optimization_sql(
     plan_id: i64,
     optimization_type: String,
-    pool: tauri::State<'_, Arc<DatabasePool>>,
+    pool: tauri::State<'_, DatabasePool>,
 ) -> Result<OptimizationSql, String> {
     println!(
         "Backend: generate_optimization_sql called for plan_id={}, type={}",
@@ -607,6 +620,7 @@ pub struct ThresholdOverrides {
 pub struct ParsedPlan {
     pub success: bool,
     pub plan_tree: ExecutionPlanNode,
+    pub sql: Option<String>,
     pub parse_warnings: Vec<String>,
     pub parsed_at: String,
 }

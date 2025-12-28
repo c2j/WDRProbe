@@ -18,6 +18,12 @@ pub struct ExecutionPlanNode {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ExecutionPlanResult {
+    pub plan: ExecutionPlanNode,
+    pub sql: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PlanNodeDetails {
     pub output: Option<Vec<String>>,
     pub filter: Option<String>,

@@ -132,15 +132,13 @@ mod end_to_end_tests {
             performance_score_change: 25,
             status: "Improved".to_string(),
             conclusion: "Performance improved across all metrics".to_string(),
-            key_findings: vec![
-                comparison::KeyFinding {
-                    category: "Sql".to_string(),
-                    metric: "Elapsed Time".to_string(),
-                    change_percent: -25.0,
-                    severity: "Warning".to_string(),
-                    description: "SQL elapsed time improved by 25%".to_string(),
-                }
-            ],
+            key_findings: vec![comparison::KeyFinding {
+                category: "Sql".to_string(),
+                metric: "Elapsed Time".to_string(),
+                change_percent: -25.0,
+                severity: "Warning".to_string(),
+                description: "SQL elapsed time improved by 25%".to_string(),
+            }],
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         assert!(!comparison_summary.key_findings.is_empty());
@@ -230,7 +228,9 @@ mod end_to_end_tests {
         assert_eq!(issue_list.summary.total_issues, 1);
 
         // Step 4: Verify severity filtering (all critical issues should have Critical severity)
-        let critical_issues: Vec<_> = issue_list.issues.iter()
+        let critical_issues: Vec<_> = issue_list
+            .issues
+            .iter()
             .filter(|i| i.severity == audit::AuditSeverity::Critical)
             .collect();
         assert!(!critical_issues.is_empty());
@@ -427,7 +427,7 @@ mod end_to_end_tests {
             operation: "Seq Scan".to_string(),
             cost: 25.0,
             rows: 500,
-            actual_rows: Some(600),  // Actual differs from estimate
+            actual_rows: Some(600), // Actual differs from estimate
             actual_time: Some(125.5),
             width: Some(100),
             children: vec![],
@@ -444,9 +444,7 @@ mod end_to_end_tests {
                 "Sequential scan on table users".to_string(),
                 "Row estimation mismatch: estimated 500, actual 600".to_string(),
             ],
-            suggestions: vec![
-                "Consider adding index on status column".to_string(),
-            ],
+            suggestions: vec!["Consider adding index on status column".to_string()],
         };
         assert_eq!(plan_node.operation, "Seq Scan");
         assert!(plan_node.actual_rows.is_some()); // Has actual stats
@@ -499,16 +497,20 @@ mod end_to_end_tests {
         assert_eq!(instances.len(), 3);
 
         // Step 2: Verify instance summaries for multiple instances
-        let summaries: Vec<dashboard::InstanceSummary> = instances.iter().enumerate().map(|(i, instance)| {
-            dashboard::InstanceSummary {
-                instance_name: instance.to_string(),
-                status: dashboard::InstanceStatus::Healthy,
-                health_score: 95 - (i as i32 * 5), // Varying health scores
-                active_issues: i as i32,
-                report_count: 2,
-                last_report_time: Some(chrono::Utc::now()),
-            }
-        }).collect();
+        let summaries: Vec<dashboard::InstanceSummary> = instances
+            .iter()
+            .enumerate()
+            .map(|(i, instance)| {
+                dashboard::InstanceSummary {
+                    instance_name: instance.to_string(),
+                    status: dashboard::InstanceStatus::Healthy,
+                    health_score: 95 - (i as i32 * 5), // Varying health scores
+                    active_issues: i as i32,
+                    report_count: 2,
+                    last_report_time: Some(chrono::Utc::now()),
+                }
+            })
+            .collect();
 
         assert_eq!(summaries.len(), 3);
 
@@ -542,14 +544,12 @@ mod end_to_end_tests {
             },
         ];
 
-        let hot_issues = vec![
-            dashboard::HotIssue {
-                title: "Full Table Scan".to_string(),
-                count: 5,
-                severity: dashboard::AuditSeverity::High,
-                category: dashboard::FindingCategory::Sql,
-            },
-        ];
+        let hot_issues = vec![dashboard::HotIssue {
+            title: "Full Table Scan".to_string(),
+            count: 5,
+            severity: dashboard::AuditSeverity::High,
+            category: dashboard::FindingCategory::Sql,
+        }];
 
         let dashboard_metrics = dashboard::DashboardMetrics {
             instance_name: None,
@@ -571,8 +571,7 @@ mod end_to_end_tests {
         assert!(!dashboard_metrics.hot_issues.is_empty());
 
         // Step 4: Verify instance filtering concept
-        let filtered_summary = summaries.iter()
-            .find(|s| s.instance_name == "instance_a");
+        let filtered_summary = summaries.iter().find(|s| s.instance_name == "instance_a");
         assert!(filtered_summary.is_some());
     }
 
@@ -618,9 +617,7 @@ mod end_to_end_tests {
                 "File not found: /nonexistent/file.wdr".to_string(),
                 "Invalid file format".to_string(),
             ],
-            validation_errors: vec![
-                "Missing required fields".to_string(),
-            ],
+            validation_errors: vec!["Missing required fields".to_string()],
             message: Some("Import failed".to_string()),
         };
 
@@ -644,7 +641,9 @@ mod end_to_end_tests {
             severity: audit::AuditSeverity::High,
             title: "Missing index detected".to_string(),
             description: "Query would benefit from an index".to_string(),
-            problematic_sql: Some("SELECT * FROM users WHERE email = 'test@example.com'".to_string()),
+            problematic_sql: Some(
+                "SELECT * FROM users WHERE email = 'test@example.com'".to_string(),
+            ),
             recommendation: "Create index on email column".to_string(),
             status: audit::AuditStatus::Open,
             detected_at: chrono::Utc::now().to_rfc3339(),

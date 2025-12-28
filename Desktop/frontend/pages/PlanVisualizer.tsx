@@ -53,13 +53,19 @@ const PlanVisualizer: React.FC = () => {
       setPlan(data);
       setLoading(false);
     });
-  };
+};
 
-  const handleImportPlan = async (planText: string, format: 'json' | 'text') => {
+
+
+  const handleImportPlan = async (planText: string, format: 'json' | 'text' | 'sql-plan') => {
     setLoading(true);
     try {
-      const planData = await ApiService.parseExecutionPlan(planText, format);
-      setPlan(planData);
+      const result = await ApiService.parseExecutionPlan(planText, format);
+      setPlan(result.plan);
+      // If SQL was extracted from SQL+PLAN format, display it in the SQL editor
+      if (result.sql) {
+        setSql(result.sql);
+      }
     } catch (error) {
       throw error;
     } finally {
@@ -475,7 +481,7 @@ const PlanVisualizer: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {hotSqls.map(sql => (
+                                {hotSqls?.map(sql => (
                                     <tr key={sql.id} className="hover:bg-gray-50 group">
                                         <td className="px-4 py-2 font-mono text-gray-600 truncate max-w-[200px]" title={sql.sqlShort}>
                                             {sql.sqlShort}

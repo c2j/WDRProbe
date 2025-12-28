@@ -1,7 +1,7 @@
 // Database schema initialization
-// Creates all necessary tables and indexes for the application
+// Creates all necessary tables and indexes for application
 
-use rusqlite::{Connection, Result};
+use rusqlite::{Connection, Result, params};
 
 /// Initialize the database schema
 pub fn initialize_schema(conn: &Connection) -> Result<()> {
@@ -269,13 +269,156 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
     "#)?;
 
     // Optimize SQLite settings for performance
-    conn.execute_batch(r#"
+    conn.execute_batch(
+        r#"
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
         PRAGMA cache_size = -64000;  -- 64MB cache
         PRAGMA temp_store = MEMORY;
         PRAGMA mmap_size = 268435456;  -- 256MB mmap
-    "#)?;
+    "#,
+    )?;
+
+    Ok(())
+}
+
+/// Initialize sample SQL audit issues for demo purposes
+pub fn initialize_sample_audit_issues(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    // Check if audit issues already exist
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sql_audit_issues",
+        [],
+        |row| row.get(0)
+    )?;
+
+    if count > 0 {
+        return Ok(());  // Already has data
+    }
+
+    // Insert sample audit issues (simplified to avoid SQL syntax issues)
+    conn.execute("INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at, resolved_at, resolved_by) 
+                    VALUES (NULL, NULL, 'FullTableScan', 'Critical', 'Full Table Scan on Large Table', 'Query is performing full table scan on table t_order which contains 1.2M rows', 'SELECT * FROM t_order WHERE create_time > ''2025-01-01''', 'Create index on create_time column to optimize range queries', 'Open', '2025-01-01 08:00:00', NULL, NULL)", []).unwrap();
+
+    conn.execute("INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at, resolved_at, resolved_by) 
+                    VALUES (NULL, NULL, 'MissingIndex', 'High', 'Missing Index for Join', 'Query missing index on join column causing nested loop join', 'SELECT * FROM orders o JOIN users u ON o.user_id = u.id WHERE u.status = ''active''', 'Create index on orders(user_id) to optimize join', 'Open', '2025-01-01 08:00:00', NULL, NULL)", []).unwrap();
+
+    conn.execute("INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at, resolved_at, resolved_by) 
+                    VALUES (NULL, NULL, 'InefficientJoin', 'Medium', 'Inefficient Nested Loop Join', 'Query using nested Loop Join with large number of iterations', 'SELECT * FROM items i LEFT JOIN products p ON i.product_id = p.id', 'Consider using hash join instead of nested loop for large datasets', 'Open', '2025-01-01 08:00:00', NULL, NULL)", []).unwrap();
+
+    conn.execute("INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at, resolved_at, resolved_by) 
+                    VALUES (NULL, NULL, 'ExpensiveFunction', 'Medium', 'Expensive Function Call', 'Query using expensive function on large dataset', 'SELECT UPPER(name) FROM products', 'Consider using case-insensitive index or pre-processing data', 'Open', '2025-01-01 08:00:00', NULL, NULL)", []).unwrap();
+
+    conn.execute("INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at, resolved_at, resolved_by) 
+                    VALUES (NULL, NULL, 'MissingStats', 'High', 'Missing Statistics', 'Table statistics are outdated or missing', 'ANALYZE not run recently on large table', 'Run ANALYZE command on the table to update statistics', 'Open', '2024-12-30 08:00:00', NULL, NULL)", []).unwrap();
+
+    conn.execute(
+        "INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            None::<i64>, None::<i64>, "MissingIndex", "High", 
+            "Missing Index for Join", 
+            "Query missing index on join column causing nested loop join", 
+            "SELECT * FROM orders o JOIN users u ON o.user_id = u.id WHERE u.status = 'active'", 
+            "Create index on orders(user_id) to optimize join", 
+            "Open", 
+            "2025-01-01 08:00:00"
+        ],
+    )?;
+
+    conn.execute(
+        "INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            None::<i64>, None::<i64>, "InefficientJoin", "Medium", 
+            "Inefficient Nested Loop Join", 
+            "Query using nested loop Join with large number of iterations", 
+            "SELECT * FROM items i LEFT JOIN products p ON i.product_id = p.id", 
+            "Consider using hash join instead of nested loop for large datasets", 
+            "Open", 
+            "2025-01-01 08:00:00"
+        ],
+    )?;
+
+    conn.execute(
+        "INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            None::<i64>, None::<i64>, "ExpensiveFunction", "Medium", 
+            "Expensive Function Call", 
+            "Query using expensive function on large dataset", 
+            "SELECT UPPER(name) FROM products", 
+            "Consider using case-insensitive index or pre-processing data", 
+            "Open", 
+            "2025-01-01 08:00:00"
+        ],
+    )?;
+
+    conn.execute(
+        "INSERT INTO sql_audit_issues (report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            None::<i64>, None::<i64>, "MissingStats", "High", 
+            "Missing Statistics", 
+            "Table statistics are outdated or missing", 
+            "ANALYZE not run recently on large table", 
+            "Run ANALYZE command on the table to update statistics", 
+            "Open", 
+            "2024-12-30 08:00:00"
+        ],
+    )?;
+
+    Ok(())
+}
+
+/// Initialize default threshold configurations
+/// Should be called after schema initialization to provide baseline thresholds
+pub fn initialize_default_thresholds(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    // Check if thresholds already exist
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM threshold_configs",
+        [],
+        |row| row.get(0)
+    )?;
+
+    if count > 0 {
+        return Ok(());  // Already initialized
+    }
+
+    // Insert default SQL thresholds
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SQL', 'Float', 'sql_top_time', 1000.0, 1000.0, 100.0, 5000.0, 'Threshold for slow SQL detection (ms)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SQL', 'Integer', 'sql_scan_rows', 100000.0, 100000.0, 10000.0, 1000000.0, 'Alert if scan exceeds this number of rows', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SQL', 'Float', 'sql_cpu_time', 500.0, 500.0, 100.0, 5000.0, 'CPU time threshold (ms)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SQL', 'Float', 'sql_io_time', 1000.0, 1000.0, 100.0, 10000.0, 'IO time threshold (ms)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SQL', 'Float', 'sql_buffer_gets', 10000.0, 10000.0, 1000.0, 100000.0, 'Buffer gets threshold', 'system')", []).unwrap();
+
+    // Insert default WAIT thresholds
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('WAIT', 'Float', 'wait_max_lock', 3000.0, 3000.0, 1000.0, 10000.0, 'Maximum lock wait time (ms)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('WAIT', 'Float', 'wait_max_io', 5000.0, 5000.0, 1000.0, 30000.0, 'Maximum IO wait time (ms)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('WAIT', 'Float', 'wait_max_lwlock', 2000.0, 2000.0, 500.0, 10000.0, 'Maximum LWLock wait time (ms)', 'system')", []).unwrap();
+
+    // Insert default SYSTEM thresholds
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SYSTEM', 'Percentage', 'sys_cpu_usage', 80.0, 80.0, 60.0, 100.0, 'CPU usage alert threshold (%)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SYSTEM', 'Percentage', 'sys_memory_usage', 85.0, 85.0, 70.0, 95.0, 'Memory usage alert threshold (%)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SYSTEM', 'Float', 'sys_disk_io', 80.0, 80.0, 50.0, 100.0, 'Disk IO alert threshold (IOPS)', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('SYSTEM', 'Percentage', 'sys_buffer_hit', 95.0, 95.0, 90.0, 100.0, 'Buffer cache hit ratio target (%)', 'system')", []).unwrap();
+
+    // Insert default AI thresholds
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('AI', 'Integer', 'ai_sample_size', 1000.0, 1000.0, 100.0, 10000.0, 'AI sampling size', 'system')", []).unwrap();
+    conn.execute("INSERT INTO threshold_configs (category, data_type, config_key, value, default_value, min_value, max_value, description, updated_by) 
+                    VALUES ('AI', 'Float', 'ai_confidence', 0.8, 0.8, 0.5, 1.0, 'AI confidence threshold', 'system')", []).unwrap();
 
     Ok(())
 }

@@ -489,10 +489,10 @@ fn parse_sql_row_from_table(
             sql_text,
             executions: parse_cell(6, 0) as u64, // Calls (column index 6)
             total_elapsed_time: parse_float(2, 0.0), // Total Elapse Time (column index 2)
-            cpu_time: parse_float(3, 0.0), // CPU Time (column index 3)
-            io_time: parse_float(13, 0.0), // Data IO Time (column index 13)
+            cpu_time: parse_float(3, 0.0),       // CPU Time (column index 3)
+            io_time: parse_float(13, 0.0),       // Data IO Time (column index 13)
             buffer_gets: parse_cell(9, 0) as u64, // Logical Read (column index 9)
-            disk_reads: parse_cell(8, 0) as u64,  // Physical Read (column index 8)
+            disk_reads: parse_cell(8, 0) as u64, // Physical Read (column index 8)
             rows_processed: parse_cell(5, 0) as u64, // Returned Rows (column index 5)
             first_load_time: chrono::Utc::now().to_rfc3339(),
             last_load_time: chrono::Utc::now().to_rfc3339(),

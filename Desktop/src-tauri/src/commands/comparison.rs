@@ -344,8 +344,11 @@ fn perform_comparison(
     let target_sqls = DatabaseOperations::get_top_sqls_by_report(pool, target_report_id)
         .map_err(|e| format!("Failed to get target SQLs: {}", e))?;
 
-    println!("[Comparison] Source report has {} SQLs, Target report has {} SQLs",
-        source_sqls.len(), target_sqls.len());
+    println!(
+        "[Comparison] Source report has {} SQLs, Target report has {} SQLs",
+        source_sqls.len(),
+        target_sqls.len()
+    );
 
     // Create hash maps for SQL matching
     let source_map: HashMap<String, &TopSql> = source_sqls

@@ -7,13 +7,13 @@ import { readTextFile } from '@tauri-apps/api/fs';
 interface PlanImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (planText: string, format: 'json' | 'text') => Promise<void>;
+  onImport: (planText: string, format: 'json' | 'text' | 'sql-plan') => Promise<void>;
 }
 
 const PlanImportDialog: React.FC<PlanImportDialogProps> = ({ isOpen, onClose, onImport }) => {
   const { t } = useI18n();
   const [planText, setPlanText] = useState('');
-  const [format, setFormat] = useState<'json' | 'text'>('json');
+  const [format, setFormat] = useState<'json' | 'text' | 'sql-plan'>('json');
   const [filePath, setFilePath] = useState('');
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +26,10 @@ const PlanImportDialog: React.FC<PlanImportDialogProps> = ({ isOpen, onClose, on
           {
             name: 'Execution Plan',
             extensions: ['json', 'txt', 'log']
+          },
+          {
+            name: 'SQL with Plan',
+            extensions: ['sql']
           },
           {
             name: 'All Files',
@@ -46,6 +50,10 @@ const PlanImportDialog: React.FC<PlanImportDialogProps> = ({ isOpen, onClose, on
           // Auto-detect format
           if (selected.endsWith('.json') || content.trim().startsWith('{')) {
             setFormat('json');
+          } else if (content.includes('QUERY PLAN') || content.includes('explain') || 
+                     content.includes('Hash Join') || content.includes('Seq Scan') ||
+                     content.includes('->')) {
+            setFormat('sql-plan');
           } else {
             setFormat('text');
           }
@@ -126,43 +134,65 @@ const PlanImportDialog: React.FC<PlanImportDialogProps> = ({ isOpen, onClose, on
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {t('vis.import.format')} *
             </label>
+          <div className="space-y-2">
             <div className="flex items-center space-x-4">
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
-                  type="radio"
-                  name="format"
-                  value="json"
-                  checked={format === 'json'}
-                  onChange={(e) => setFormat(e.target.value as 'json' | 'text')}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">JSON</span>
+                      type="radio"
+                      name="format"
+                      value="json"
+                      checked={format === 'json'}
+                      onChange={(e) => setFormat(e.target.value as 'json' | 'text' | 'sql-plan')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">JSON</span>
               </label>
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
-                  type="radio"
-                  name="format"
-                  value="text"
-                  checked={format === 'text'}
-                  onChange={(e) => setFormat(e.target.value as 'json' | 'text')}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">{t('vis.import.textFormat')}</span>
+                      type="radio"
+                      name="format"
+                      value="text"
+                      checked={format === 'text'}
+                      onChange={(e) => setFormat(e.target.value as 'json' | 'text' | 'sql-plan')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{t('vis.import.textFormat')}</span>
+              </label>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                      type="radio"
+                      name="format"
+                      value="sql-plan"
+                      checked={format === 'sql-plan'}
+                      onChange={(e) => setFormat(e.target.value as 'json' | 'text' | 'sql-plan')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">SQL + Plan</span>
               </label>
             </div>
+            {format === 'sql-plan' && (
+              <div className="text-xs text-gray-500 mt-2 bg-blue-50 p-2 rounded">
+                {t('vis.import.sqlPlanHint')}
+              </div>
+            )}
+          </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {t('vis.import.planText')}
             </label>
-            <textarea
-              value={planText}
-              onChange={(e) => setPlanText(e.target.value)}
-              placeholder={t('vis.import.textPlaceholder')}
-              rows={10}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none resize-none"
-            />
+              <textarea
+                value={planText}
+                onChange={(e) => setPlanText(e.target.value)}
+                placeholder={
+                  format === 'sql-plan' 
+                    ? t('vis.import.sqlPlanPlaceholder')
+                    : t('vis.import.textPlaceholder')
+                }
+                rows={12}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none resize-none"
+              />
           </div>
 
           {error && (

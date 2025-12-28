@@ -15,6 +15,7 @@ use commands::export;
 use commands::reports;
 use commands::threshold;
 use database::{init_database, initialize_schema, DatabasePool};
+use database::schema::{initialize_default_thresholds, initialize_sample_audit_issues};
 use tauri::Manager;
 
 #[cfg_attr(
@@ -43,6 +44,12 @@ fn main() {
             // Initialize schema
             let conn = pool.get().expect("Failed to get database connection");
             initialize_schema(&conn).expect("Failed to initialize schema");
+
+            // Initialize default thresholds
+            initialize_default_thresholds(&conn).expect("Failed to initialize default thresholds");
+
+            // Initialize sample audit issues
+            initialize_sample_audit_issues(&conn).expect("Failed to initialize sample audit issues");
 
             // Store database pool in app state
             app.manage(pool);

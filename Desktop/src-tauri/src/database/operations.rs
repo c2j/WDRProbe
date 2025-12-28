@@ -144,7 +144,7 @@ impl DatabaseOperations for DatabasePool {
 
         let mut stmt = conn.prepare("SELECT * FROM wdr_reports WHERE id = ?")?;
 
-        let report_iter = stmt.query_map(params![id], |row| {
+        let mut report_iter = stmt.query_map(params![id], |row| {
             Ok(WdrReport {
                 id: row.get("id")?,
                 instance_name: row.get("instance_name")?,
@@ -158,11 +158,11 @@ impl DatabaseOperations for DatabasePool {
             })
         })?;
 
-        for report in report_iter {
-            return Ok(Some(report?));
+        match report_iter.next() {
+            Some(Ok(report)) => Ok(Some(report)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
         }
-
-        Ok(None)
     }
 
     fn list_wdr_reports(&self, limit: Option<i32>, offset: Option<i32>) -> Result<Vec<WdrReport>> {
@@ -1210,7 +1210,7 @@ impl DatabaseOperations for DatabasePool {
 
         let mut stmt = conn.prepare("SELECT * FROM efficiency_metrics WHERE report_id = ?")?;
 
-        let metrics_iter = stmt.query_map(params![report_id], |row| {
+        let mut metrics_iter = stmt.query_map(params![report_id], |row| {
             Ok(EfficiencyMetrics {
                 report_id: row.get("report_id")?,
                 buffer_hit_percent: row.get("buffer_hit_percent")?,
@@ -1221,11 +1221,11 @@ impl DatabaseOperations for DatabasePool {
             })
         })?;
 
-        for metrics in metrics_iter {
-            return Ok(Some(metrics?));
+        match metrics_iter.next() {
+            Some(Ok(metrics)) => Ok(Some(metrics)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
         }
-
-        Ok(None)
     }
 
     fn create_load_profile(&self, profile: &LoadProfile) -> Result<i64> {
@@ -1273,7 +1273,7 @@ impl DatabaseOperations for DatabasePool {
 
         let mut stmt = conn.prepare("SELECT * FROM load_profile WHERE report_id = ?")?;
 
-        let profile_iter = stmt.query_map(params![report_id], |row| {
+        let mut profile_iter = stmt.query_map(params![report_id], |row| {
             Ok(LoadProfile {
                 report_id: row.get("report_id")?,
                 db_time_per_sec: row.get("db_time_per_sec")?,
@@ -1285,11 +1285,11 @@ impl DatabaseOperations for DatabasePool {
             })
         })?;
 
-        for profile in profile_iter {
-            return Ok(Some(profile?));
+        match profile_iter.next() {
+            Some(Ok(profile)) => Ok(Some(profile)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
         }
-
-        Ok(None)
     }
 
     fn create_execution_plan(&self, plan: &crate::models::SqlExecutionPlan) -> Result<i64> {
@@ -1335,7 +1335,7 @@ impl DatabaseOperations for DatabasePool {
 
         let mut stmt = conn.prepare("SELECT * FROM execution_plans WHERE sql_id = ?")?;
 
-        let plan_iter = stmt.query_map(params![sql_id], |row| {
+        let mut plan_iter = stmt.query_map(params![sql_id], |row| {
             let plan_tree_json: String = row.get("plan_tree")?;
             let plan_tree: crate::models::ExecutionPlanNode = serde_json::from_str(&plan_tree_json)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -1349,11 +1349,11 @@ impl DatabaseOperations for DatabasePool {
             })
         })?;
 
-        for plan in plan_iter {
-            return Ok(Some(plan?));
+        match plan_iter.next() {
+            Some(Ok(plan)) => Ok(Some(plan)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
         }
-
-        Ok(None)
     }
 
     fn get_execution_plans_by_report(
@@ -1472,7 +1472,7 @@ impl DatabaseOperations for DatabasePool {
 
         let mut stmt = conn.prepare("SELECT * FROM wdr_comparisons WHERE id = ?")?;
 
-        let summary_iter = stmt.query_map(params![comparison_id], |row| {
+        let mut summary_iter = stmt.query_map(params![comparison_id], |row| {
             let findings_json: String = row.get("key_findings")?;
             let key_findings: Vec<crate::models::comparison::KeyFinding> =
                 serde_json::from_str(&findings_json)
@@ -1487,11 +1487,11 @@ impl DatabaseOperations for DatabasePool {
             })
         })?;
 
-        for summary in summary_iter {
-            return Ok(Some(summary?));
+        match summary_iter.next() {
+            Some(Ok(summary)) => Ok(Some(summary)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
         }
-
-        Ok(None)
     }
 
     fn get_comparisons(

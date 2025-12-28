@@ -12,6 +12,11 @@ mod tests {
         println!("文件路径: {}", file_path);
         println!();
 
+        if !std::path::Path::new(file_path).exists() {
+            println!("Skipping test: User file not found at {}", file_path);
+            return;
+        }
+
         match parse_complete_wdr_report(file_path, "dn_6001_6002_6003".to_string()) {
             Ok(report) => {
                 println!("=== WDR解析成功! ===\n");
@@ -25,15 +30,33 @@ mod tests {
 
                 println!("【效率指标】");
                 println!("  缓冲命中率: {:.2}%", report.efficiency.buffer_hit_percent);
-                println!("  CPU效率: {:.2}%", report.efficiency.cpu_efficiency_percent);
-                println!("  软解析率: {:.2}%", report.efficiency.soft_parse_rate_percent);
-                println!("  硬解析率: {:.2}%", report.efficiency.hard_parse_rate_percent);
+                println!(
+                    "  CPU效率: {:.2}%",
+                    report.efficiency.cpu_efficiency_percent
+                );
+                println!(
+                    "  软解析率: {:.2}%",
+                    report.efficiency.soft_parse_rate_percent
+                );
+                println!(
+                    "  硬解析率: {:.2}%",
+                    report.efficiency.hard_parse_rate_percent
+                );
                 println!();
 
                 println!("【Load Profile】");
-                println!("  DB Time(微秒/秒): {:.2}", report.load_profile.db_time_per_sec);
-                println!("  CPU Time(微秒/秒): {:.2}", report.load_profile.cpu_time_per_sec);
-                println!("  IO请求次数: {:.2}", report.load_profile.io_requests_per_sec);
+                println!(
+                    "  DB Time(微秒/秒): {:.2}",
+                    report.load_profile.db_time_per_sec
+                );
+                println!(
+                    "  CPU Time(微秒/秒): {:.2}",
+                    report.load_profile.cpu_time_per_sec
+                );
+                println!(
+                    "  IO请求次数: {:.2}",
+                    report.load_profile.io_requests_per_sec
+                );
                 println!();
 
                 println!("【数据库统计】 ({} 个数据库):", report.database_stats.len());
@@ -51,7 +74,10 @@ mod tests {
                 }
                 println!();
 
-                println!("【SQL统计】 (共 {} 条SQL，显示前10条):", report.top_sql.len());
+                println!(
+                    "【SQL统计】 (共 {} 条SQL，显示前10条):",
+                    report.top_sql.len()
+                );
                 for (i, sql) in report.top_sql.iter().take(10).enumerate() {
                     let sql_preview = if sql.sql_text.len() > 60 {
                         format!("{}...", &sql.sql_text[..60])
@@ -71,7 +97,10 @@ mod tests {
                 }
                 println!();
 
-                println!("【缓存IO统计】 ({} 项，显示前5项):", report.cache_io_stats.len());
+                println!(
+                    "【缓存IO统计】 ({} 项，显示前5项):",
+                    report.cache_io_stats.len()
+                );
                 for (i, cache) in report.cache_io_stats.iter().take(5).enumerate() {
                     println!(
                         "  {}. {}.{} - 堆命中率: {:.2}%, 索引命中率: {:.2}%",
@@ -84,7 +113,10 @@ mod tests {
                 }
                 println!();
 
-                println!("【对象统计】 ({} 项，显示前5项):", report.object_stats.len());
+                println!(
+                    "【对象统计】 ({} 项，显示前5项):",
+                    report.object_stats.len()
+                );
                 for (i, obj) in report.object_stats.iter().take(5).enumerate() {
                     println!(
                         "  {}. {}.{} - 类型: {}, 总扫描: {}, 顺序扫描: {}, 索引扫描: {}",
