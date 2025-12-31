@@ -109,8 +109,8 @@ pub async fn get_execution_plan(
             if let Ok(Some(saved_plan)) = pool.get_execution_plan_by_sql(effective_sql_id) {
                 saved_plan.plan_tree
             } else {
-                // Generate a mock plan for demonstration
-                generate_mock_plan_for_sql(&sql.sql_text)
+                // No execution plan available - analyze SQL text for basic optimization suggestions
+                return analyze_sql_without_plan(&sql.sql_text);
             }
         }
         "UserProvided" => {
@@ -119,8 +119,8 @@ pub async fn get_execution_plan(
             // Validate SQL syntax
             validate_sql_syntax(&sql)?;
 
-            // Generate a mock plan for user-provided SQL
-            generate_mock_plan_for_sql(&sql)
+            // Analyze SQL text for basic optimization suggestions without execution plan
+            return analyze_sql_without_plan(&sql);
         }
         _ => {
             return Err(format!("Unknown plan source: {}", plan_source));
@@ -238,35 +238,36 @@ pub async fn analyze_execution_plan_command(
         });
     }
 
-    // Generate recommendations
-    let mut recommendations = Vec::new();
-    for suggestion in &response.suggestions {
-        recommendations.push(PlanRecommendation {
-            priority: if suggestion.contains("index") || suggestion.contains("Index") {
-                RecommendationPriority::High
-            } else {
-                RecommendationPriority::Medium
-            },
-            action: "Optimize".to_string(),
-            description: suggestion.clone(),
-            sql_example: None,
-            estimated_benefit: "5-15% improvement".to_string(),
-        });
-    }
+        // Generate recommendations
+        let mut recommendations = Vec::new();
+        for suggestion in &response.suggestions {
+            recommendations.push(PlanRecommendation {
+                priority: if suggestion.contains("index") || suggestion.contains("Index") {
+                    RecommendationPriority::High
+                } else {
+                    RecommendationPriority::Medium
+                },
+                action: "Optimize".to_string(),
+                description: suggestion.clone(),
+                sql_example: None,
+                estimated_benefit: "Variable - depends on data distribution and query patterns".to_string(),
+            });
+        }
 
-    // Determine optimization potential
+    // Determine optimization potential - be more conservative and honest about estimates
     let optimization_potential = if score >= 80 {
-        "Low - Minor optimizations available".to_string()
+        "Low - Minor optimizations may be available".to_string()
     } else if score >= 50 {
-        "Medium - Several optimizations possible".to_string()
+        "Medium - Some optimization opportunities possible".to_string()
     } else {
-        "High - Significant optimization opportunities".to_string()
+        "High - Multiple optimization areas identified (requires execution plan for accuracy)".to_string()
     };
 
+    // Be much more conservative with improvement estimates
     let estimated_improvement = if score < 50 {
-        Some(30 + (80 - score) as i32)
+        Some(15 + (80 - score) / 3) // Reduced from 30+ to 15+ 
     } else if score < 80 {
-        Some(10 + (80 - score) / 2)
+        Some(5 + (80 - score) / 4)  // Reduced from 10+ to 5+
     } else {
         None
     };
@@ -440,7 +441,21 @@ pub async fn generate_optimization_sql(
 
     let mut sql_statements = Vec::new();
     let mut explanations = Vec::new();
-    let warnings = Vec::new();
+    let mut warnings = Vec::new();
+
+    // Check if this is a SQL analysis without real execution plan
+    if plan.plan_tree.operation == "SQL Analysis" {
+        warnings.push("Optimization SQL generation requires actual execution plan data. These suggestions are based on SQL text analysis only.".to_string());
+        warnings.push("For accurate index and statistics recommendations, provide actual EXPLAIN output or execution plan data.".to_string());
+        
+        // Return empty SQL statements with warnings instead of generating potentially incorrect SQL
+        return Ok(OptimizationSql {
+            sql_statements,
+            explanations,
+            warnings,
+            confidence: OptimizationConfidence::Low,
+        });
+    }
 
     match optimization_type.as_str() {
         "index" => {
@@ -474,6 +489,213 @@ pub async fn generate_optimization_sql(
     })
 }
 
+/// Analyze SQL text without execution plan to provide basic optimization suggestions
+pub fn analyze_sql_without_plan(sql: &str) -> Result<ExecutionPlanResponse, String> {
+    println!("Analyzing SQL text without execution plan: {}", sql.chars().take(50).collect::<String>());
+    
+    let mut warnings = Vec::new();
+    let mut suggestions = Vec::new();
+    let mut plan_metadata = PlanMetadata {
+        total_cost: 0.0, // No cost data available without execution plan
+        total_rows: 0,   // No row estimates available without execution plan
+        plan_depth: 0,
+        node_count: 0,
+        optimization_warnings: 0,
+        estimated_time_ms: 0.0, // No timing data available
+        gaussdb_format: false,    // This is not a real GaussDB format plan
+        has_actual_stats: false,
+    };
+
+    // Convert SQL to uppercase for analysis
+    let sql_upper = sql.to_uppercase();
+    let sql_clean = sql_upper.trim();
+
+    // Analyze SELECT statements
+    if sql_clean.starts_with("SELECT") {
+        analyze_select_statement(sql, &mut warnings, &mut suggestions);
+    }
+    // Analyze INSERT statements  
+    else if sql_clean.starts_with("INSERT") {
+        analyze_insert_statement(sql, &mut warnings, &mut suggestions);
+    }
+    // Analyze UPDATE statements
+    else if sql_clean.starts_with("UPDATE") {
+        analyze_update_statement(sql, &mut warnings, &mut suggestions);
+    }
+    // Analyze DELETE statements
+    else if sql_clean.starts_with("DELETE") {
+        analyze_delete_statement(sql, &mut warnings, &mut suggestions);
+    }
+
+    // Count optimization warnings
+    plan_metadata.optimization_warnings = warnings.len() as u32;
+
+    // Create a minimal plan tree for the response
+    let plan_tree = ExecutionPlanNode {
+        operation: "SQL_TEXT_ANALYSIS_ONLY".to_string(),
+        cost: 0.0, // No cost data available
+        rows: 0,   // No row estimates available
+        actual_rows: None,
+        actual_time: None,
+        width: None, // No width data available
+        children: vec![],
+        node_details: PlanNodeDetails {
+            output: Some(vec![
+                "=== SQL TEXT ANALYSIS ONLY ===".to_string(),
+                "No execution plan data available".to_string(),
+                "Analysis based on SQL text patterns only".to_string(),
+                "For accurate optimization, provide EXPLAIN output".to_string()
+            ]),
+            filter: None,
+            buffers: None,
+            join_type: None,
+            hash_keys: None,
+            index_name: None,
+            table_name: None, // Don't extract table names to avoid confusion
+        },
+        warnings: vec![
+            "WARNING: Analysis performed without execution plan data".to_string(),
+            "Suggestions are based on SQL text patterns only".to_string(),
+            "For accurate index/cost analysis, provide actual execution plan".to_string()
+        ],
+        suggestions: vec![
+            "Upload EXPLAIN (FORMAT JSON) output for detailed analysis".to_string(),
+            "Provide execution plan data for accurate optimization recommendations".to_string()
+        ],
+    };
+
+    Ok(ExecutionPlanResponse {
+        success: true,
+        plan_tree,
+        plan_metadata,
+        warnings,
+        suggestions,
+    })
+}
+
+/// Analyze SELECT statements for optimization opportunities
+fn analyze_select_statement(sql: &str, warnings: &mut Vec<String>, suggestions: &mut Vec<String>) {
+    let sql_upper = sql.to_uppercase();
+
+    // Check for SELECT *
+    if sql_upper.contains("SELECT *") {
+        warnings.push("SELECT * retrieves all columns which may be inefficient for large tables".to_string());
+        suggestions.push("Specify only required columns instead of SELECT *".to_string());
+    }
+
+    // Check for missing WHERE clause on large tables
+    if !sql_upper.contains("WHERE") && !sql_upper.contains("LIMIT") {
+        warnings.push("Query lacks WHERE clause - may scan entire table".to_string());
+        suggestions.push("Add appropriate WHERE clause to filter rows".to_string());
+    }
+
+    // Check for OR conditions that might prevent index usage
+    if sql_upper.contains(" OR ") {
+        warnings.push("OR conditions may prevent efficient index usage".to_string());
+        suggestions.push("Consider using UNION or rewriting with appropriate indexes".to_string());
+    }
+
+    // Check for LIKE with leading wildcard
+    if sql_upper.contains("LIKE '%") {
+        warnings.push("LIKE with leading wildcard prevents index usage".to_string());
+        suggestions.push("Consider full-text search or restructuring the query".to_string());
+    }
+
+    // Check for NOT IN which might be inefficient
+    if sql_upper.contains("NOT IN") {
+        warnings.push("NOT IN can be inefficient with large lists".to_string());
+        suggestions.push("Consider using NOT EXISTS or LEFT JOIN with NULL check".to_string());
+    }
+
+    // Check for subqueries in SELECT clause
+    if sql_upper.contains("SELECT (") {
+        warnings.push("Subqueries in SELECT clause may execute for each row".to_string());
+        suggestions.push("Consider using JOINs or CTEs instead".to_string());
+    }
+
+    // Check for DISTINCT which might indicate missing indexes
+    if sql_upper.contains("DISTINCT") {
+        warnings.push("DISTINCT requires sorting which can be expensive".to_string());
+        suggestions.push("Consider adding appropriate indexes or restructuring query".to_string());
+    }
+
+    // Check for ORDER BY without LIMIT on large result sets
+    if sql_upper.contains("ORDER BY") && !sql_upper.contains("LIMIT") {
+        warnings.push("ORDER BY without LIMIT may sort large result sets".to_string());
+        suggestions.push("Add LIMIT clause or ensure appropriate covering index".to_string());
+    }
+
+    // Check for JOIN without proper syntax
+    if sql_upper.contains("JOIN") && !sql_upper.contains("ON") && !sql_upper.contains("USING") {
+        warnings.push("JOIN without ON or USING clause detected".to_string());
+        suggestions.push("Specify proper JOIN conditions with ON or USING clauses".to_string());
+    }
+
+    // Add specific warnings about SQL analysis limitations
+    warnings.push("SQL TEXT ANALYSIS: Cannot determine actual table sizes or data distribution".to_string());
+    warnings.push("Index recommendations require schema knowledge and execution plan data".to_string());
+}
+
+/// Analyze INSERT statements for optimization opportunities
+fn analyze_insert_statement(sql: &str, warnings: &mut Vec<String>, suggestions: &mut Vec<String>) {
+    let sql_upper = sql.to_uppercase();
+
+    // Check for INSERT without column specification
+    // Look for INSERT INTO table_name VALUES pattern (no column list)
+    if sql_upper.contains("INSERT INTO") && sql_upper.contains("VALUES") {
+        // Find position of INSERT INTO and VALUES
+        if let (Some(insert_pos), Some(values_pos)) = (sql_upper.find("INSERT INTO"), sql_upper.find("VALUES")) {
+            // Check if there's no opening parenthesis between INSERT INTO and VALUES
+            let between_insert_and_values = &sql_upper[insert_pos + 11..values_pos];
+            if !between_insert_and_values.contains('(') {
+                warnings.push("INSERT without column specification may cause issues with schema changes".to_string());
+                suggestions.push("Explicitly specify column names in INSERT statement".to_string());
+            }
+        }
+    }
+
+    // Check for large batch inserts
+    if sql_upper.matches("VALUES").count() > 10 {
+        warnings.push("Large batch insert detected".to_string());
+        suggestions.push("Consider using COPY or batching in smaller chunks".to_string());
+    }
+}
+
+/// Analyze UPDATE statements for optimization opportunities
+fn analyze_update_statement(sql: &str, warnings: &mut Vec<String>, suggestions: &mut Vec<String>) {
+    let sql_upper = sql.to_uppercase();
+
+    // Check for UPDATE without WHERE clause
+    if !sql_upper.contains("WHERE") {
+        warnings.push("UPDATE without WHERE clause will affect all rows".to_string());
+        suggestions.push("Add appropriate WHERE clause to limit affected rows".to_string());
+    }
+
+    // Check for UPDATE on indexed columns
+    // This is a basic check - in real scenarios you'd need schema information
+    if sql_upper.contains("SET") && sql_upper.contains("WHERE") {
+        warnings.push("UPDATE on columns with indexes may require index maintenance".to_string());
+        suggestions.push("Consider impact on indexes and potential fragmentation".to_string());
+    }
+}
+
+/// Analyze DELETE statements for optimization opportunities
+fn analyze_delete_statement(sql: &str, warnings: &mut Vec<String>, suggestions: &mut Vec<String>) {
+    let sql_upper = sql.to_uppercase();
+
+    // Check for DELETE without WHERE clause
+    if !sql_upper.contains("WHERE") {
+        warnings.push("DELETE without WHERE clause will remove all rows".to_string());
+        suggestions.push("Add appropriate WHERE clause to limit affected rows".to_string());
+    }
+
+    // Check for large DELETE operations
+    if sql_upper.contains("WHERE") && !sql_upper.contains("LIMIT") {
+        warnings.push("Large DELETE operations may lock tables for extended periods".to_string());
+        suggestions.push("Consider batching DELETE operations or using TRUNCATE for full table".to_string());
+    }
+}
+
 // ===== Helper Functions =====
 
 fn calculate_plan_metadata(node: &ExecutionPlanNode) -> (f64, u32, u32) {
@@ -491,35 +713,7 @@ fn calculate_plan_metadata(node: &ExecutionPlanNode) -> (f64, u32, u32) {
     (total_cost, node_count, max_depth + 1)
 }
 
-fn generate_mock_plan_for_sql(sql: &str) -> ExecutionPlanNode {
-    // Extract table names for a more realistic mock
-    let tables = extract_table_names(sql);
-    let table_name = tables
-        .first()
-        .unwrap_or(&"unknown_table".to_string())
-        .clone();
 
-    ExecutionPlanNode {
-        operation: "Seq Scan".to_string(),
-        cost: 1000.0,
-        rows: 50000,
-        actual_rows: None,
-        actual_time: None,
-        width: Some(100),
-        children: vec![],
-        node_details: PlanNodeDetails {
-            output: None,
-            filter: Some("id = ?".to_string()),
-            buffers: None,
-            join_type: None,
-            hash_keys: None,
-            index_name: None,
-            table_name: Some(table_name),
-        },
-        warnings: vec!["This is a mock execution plan".to_string()],
-        suggestions: vec!["Consider creating an index on filter columns".to_string()],
-    }
-}
 
 fn classify_issue(warning: &str) -> IssueType {
     if warning.contains("scan") || warning.contains("Scan") {
@@ -542,23 +736,44 @@ fn analyze_for_indexes(
     sql_statements: &mut Vec<String>,
     explanations: &mut Vec<String>,
 ) {
+    // Skip analysis if this is SQL text analysis only
+    if node.operation == "SQL_TEXT_ANALYSIS_ONLY" {
+        explanations.push("Index analysis requires actual execution plan data".to_string());
+        explanations.push("SQL text analysis cannot determine optimal index strategies".to_string());
+        return;
+    }
+
     if node.operation.contains("Seq Scan") {
         if let Some(table) = &node.node_details.table_name {
             if let Some(filter) = &node.node_details.filter {
-                // Try to extract column from filter
+                // Try to extract column from filter - but be more cautious
                 let column = filter
                     .split('=')
                     .next()
                     .and_then(|s| s.split_whitespace().last())
-                    .unwrap_or("id");
+                    .unwrap_or("unknown_column");
 
-                sql_statements.push(format!(
-                    "CREATE INDEX idx_{}_{} ON {}({});",
-                    table, column, table, column
-                ));
+                // Only suggest index if we have reasonable confidence in the column name
+                if column != "unknown_column" && !column.contains('(') && !column.contains(')') {
+                    sql_statements.push(format!(
+                        "-- Consider: CREATE INDEX idx_{}_{} ON {}({});",
+                        table, column, table, column
+                    ));
+                    explanations.push(format!(
+                        "Sequential scan on {} with filter '{}' - consider index on {}",
+                        table, filter, column
+                    ));
+                    explanations.push("Note: Verify column selectivity and query frequency before creating index".to_string());
+                } else {
+                    explanations.push(format!(
+                        "Sequential scan on {} with complex filter '{}' - manual analysis needed",
+                        table, filter
+                    ));
+                }
+            } else {
                 explanations.push(format!(
-                    "Create index on {}({}) to improve filter performance",
-                    table, column
+                    "Sequential scan on {} without filter - check if index needed",
+                    table
                 ));
             }
         }
@@ -574,12 +789,19 @@ fn analyze_for_statistics(
     sql_statements: &mut Vec<String>,
     explanations: &mut Vec<String>,
 ) {
+    // Skip analysis if this is SQL text analysis only
+    if node.operation == "SQL_TEXT_ANALYSIS_ONLY" {
+        explanations.push("Statistics analysis requires actual execution plan data".to_string());
+        return;
+    }
+
     if let Some(table) = &node.node_details.table_name {
-        sql_statements.push(format!("ANALYZE {};", table));
+        sql_statements.push(format!("-- Consider: ANALYZE {};", table));
         explanations.push(format!(
-            "Update statistics for table {} to improve query planning",
+            "Table {} may benefit from updated statistics for better query planning",
             table
         ));
+        explanations.push("Note: Run ANALYZE after significant data changes or periodically".to_string());
     }
 
     for child in &node.children {
@@ -592,15 +814,22 @@ fn analyze_for_rewrite(
     sql_statements: &mut Vec<String>,
     explanations: &mut Vec<String>,
 ) {
+    // Skip analysis if this is SQL text analysis only
+    if node.operation == "SQL_TEXT_ANALYSIS_ONLY" {
+        explanations.push("Query rewrite suggestions require actual execution plan data".to_string());
+        return;
+    }
+
     if node.operation.contains("Nested Loop") && node.cost > 1000.0 {
-        sql_statements.push("-- Consider using INNER JOIN with appropriate indexes".to_string());
-        explanations
-            .push("Rewrite query to use explicit JOIN syntax with proper indexes".to_string());
+        sql_statements.push("-- Consider: Rewrite with explicit JOIN syntax and appropriate indexes".to_string());
+        explanations.push("High-cost nested loop join detected - consider hash join or better indexes".to_string());
+        explanations.push("Note: Requires analysis of data distribution and available indexes".to_string());
     }
 
     if node.operation.contains("Sort") && node.rows > 10000 {
-        sql_statements.push("-- Consider using index to avoid sorting".to_string());
-        explanations.push("Add index covering ORDER BY columns to eliminate sort".to_string());
+        sql_statements.push("-- Consider: Add covering index to avoid sorting".to_string());
+        explanations.push("Large sort operation detected - consider index on ORDER BY columns".to_string());
+        explanations.push("Note: Index overhead vs. sort cost trade-off needs evaluation".to_string());
     }
 
     for child in &node.children {

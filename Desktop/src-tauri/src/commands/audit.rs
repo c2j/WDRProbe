@@ -63,7 +63,7 @@ impl AuditDetectionRules {
                     sql.rows_processed
                 ),
                 problematic_sql: Some(sql.sql_text.clone()),
-                recommendation: "Consider adding an index on filter columns or restructuring the query to use indexed lookups.".to_string(),
+                recommendation: "High row count suggests potential full table scan. For specific index recommendations, provide execution plan data showing which table/columns are being scanned.".to_string(),
                 status: AuditStatus::Open,
                 detected_at: chrono::Utc::now().to_rfc3339(),
                 resolved_at: None,
@@ -101,7 +101,7 @@ impl AuditDetectionRules {
                     disk_read_ratio * 100.0
                 ),
                 problematic_sql: Some(sql.sql_text.clone()),
-                recommendation: "Create indexes on columns used in WHERE, JOIN, and ORDER BY clauses to reduce disk I/O.".to_string(),
+                recommendation: "High disk I/O ratio suggests potential missing indexes. To identify specific columns, analyze execution plan or examine WHERE/JOIN clauses in the SQL text.".to_string(),
                 status: AuditStatus::Open,
                 detected_at: chrono::Utc::now().to_rfc3339(),
                 resolved_at: None,
@@ -131,7 +131,7 @@ impl AuditDetectionRules {
                     title: "Inefficient Join Detected".to_string(),
                     description: "Query uses nested loop join on large result set. Consider hash or merge join.".to_string(),
                     problematic_sql: Some(sql.sql_text.clone()),
-                    recommendation: "Consider enabling hash join or merge join for large datasets. Ensure join columns are indexed.".to_string(),
+                     recommendation: "Large dataset with nested loop join detected. Review execution plan to confirm join method and consider hash/merge join alternatives.".to_string(),
                     status: AuditStatus::Open,
                     detected_at: chrono::Utc::now().to_rfc3339(),
                     resolved_at: None,
@@ -162,7 +162,7 @@ impl AuditDetectionRules {
                 title: "Potential Stale Statistics".to_string(),
                 description: "Query has inconsistent execution times, possibly due to outdated optimizer statistics.".to_string(),
                 problematic_sql: Some(sql.sql_text.clone()),
-                recommendation: "Run ANALYZE on affected tables to update statistics for better query planning.".to_string(),
+                 recommendation: "Inconsistent execution times may indicate stale statistics. Run ANALYZE on tables referenced in this query.".to_string(),
                 status: AuditStatus::Open,
                 detected_at: chrono::Utc::now().to_rfc3339(),
                 resolved_at: None,
@@ -202,7 +202,7 @@ impl AuditDetectionRules {
                     title: format!("Function Call on Column: {}", func),
                     description: desc.to_string(),
                     problematic_sql: Some(sql.sql_text.clone()),
-                    recommendation: format!("Consider using functional index on {}({{column}}) or restructuring the query.", func.to_lowercase()),
+                    recommendation: format!("Function {}() detected in SQL. For specific column recommendations, analyze execution plan to identify which columns need functional indexes.", func),
                     status: AuditStatus::Open,
                     detected_at: chrono::Utc::now().to_rfc3339(),
                     resolved_at: None,
@@ -240,7 +240,7 @@ impl AuditDetectionRules {
                     sql.rows_processed
                 ),
                 problematic_sql: Some(sql.sql_text.clone()),
-                recommendation: "Review JOIN clauses to ensure all table relationships are properly defined with join conditions.".to_string(),
+                 recommendation: "High row count from multiple tables detected. Review SQL text to verify proper JOIN conditions are present.".to_string(),
                 status: AuditStatus::Open,
                 detected_at: chrono::Utc::now().to_rfc3339(),
                 resolved_at: None,
@@ -272,7 +272,7 @@ impl AuditDetectionRules {
                     title: "Nested Loop on Large Table".to_string(),
                     description: "Query uses nested loop join on large table. Consider hash join or covering index.".to_string(),
                     problematic_sql: Some(sql.sql_text.clone()),
-                    recommendation: "Consider creating a covering index or using hash join for better performance on large datasets.".to_string(),
+                     recommendation: "Large dataset with nested loop join detected. Review execution plan to identify specific tables/columns for optimization.".to_string(),
                     status: AuditStatus::Open,
                     detected_at: chrono::Utc::now().to_rfc3339(),
                     resolved_at: None,
@@ -304,7 +304,7 @@ impl AuditDetectionRules {
                     sql.rows_processed
                 ),
                 problematic_sql: Some(sql.sql_text.clone()),
-                recommendation: "Consider increasing work_mem setting or breaking the query into smaller batches.".to_string(),
+                 recommendation: "Large hash join detected. Consider increasing work_mem or reviewing execution plan for specific optimization opportunities.".to_string(),
                 status: AuditStatus::Open,
                 detected_at: chrono::Utc::now().to_rfc3339(),
                 resolved_at: None,
@@ -338,9 +338,7 @@ impl AuditDetectionRules {
                     sql.rows_processed
                 ),
                 problematic_sql: Some(sql.sql_text.clone()),
-                recommendation:
-                    "Create an index on the ORDER BY column(s) to avoid expensive sort operations."
-                        .to_string(),
+                 recommendation: "Large sort operation detected. To identify specific columns for indexing, examine the ORDER BY clause in the SQL text.".to_string(),
                 status: AuditStatus::Open,
                 detected_at: chrono::Utc::now().to_rfc3339(),
                 resolved_at: None,
