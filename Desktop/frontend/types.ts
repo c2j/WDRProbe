@@ -1,10 +1,9 @@
-
 export interface WdrReport {
   id: number;
   instanceName: string;
   generateTime: string;
   period: string;
-  status: 'Success' | 'Failed' | 'Running';
+  status: "Success" | "Failed" | "Running";
 }
 
 export interface WdrEfficiency {
@@ -21,7 +20,7 @@ export interface WdrBufferStat {
 export interface WdrObjectStat {
   schema: string;
   name: string;
-  type: 'Table' | 'Index';
+  type: "Table" | "Index";
   seqScan?: number;
   idxScan?: number;
   tupIns?: number;
@@ -68,16 +67,16 @@ export interface ThresholdConfig {
   description: string;
   recommendRange: string;
   // Frontend helpers
-  category?: string; 
+  category?: string;
 }
 
 export interface SqlAuditIssue {
   id: string;
-  severity: 'High' | 'Medium' | 'Low';
+  severity: "High" | "Medium" | "Low";
   type: string;
   target: string;
   time: string;
-  status: 'Pending' | 'Processing' | 'Fixed' | 'Whitelisted';
+  status: "Pending" | "Processing" | "Fixed" | "Whitelisted";
 }
 
 export interface AuditLog {
@@ -86,7 +85,7 @@ export interface AuditLog {
   user: string;
   operationType: string;
   target: string;
-  result: 'Success' | 'Failed';
+  result: "Success" | "Failed";
 }
 
 export interface WdrComparison {
@@ -98,7 +97,7 @@ export interface WdrComparison {
 }
 
 // Comparison Detail Types
-export type ComparisonCategory = 'sql' | 'wait' | 'obj' | 'sys';
+export type ComparisonCategory = "sql" | "wait" | "obj" | "sys";
 
 export interface BaseComparisonMetric {
   id: string;
@@ -161,7 +160,7 @@ export interface SystemMetricComparison extends BaseComparisonMetric {
 
 export interface ComparisonSummary {
   id: string;
-  status: 'Improved' | 'Degraded' | 'Stable';
+  status: "Improved" | "Degraded" | "Stable";
   scoreChange: number; // e.g. -15 (points or percentage)
   conclusion: string;
   keyFindings: string[];
@@ -190,7 +189,7 @@ export interface WdrHotSql {
 // Dashboard Types
 export interface InstanceSummary {
   instanceName: string;
-  status: 'Healthy' | 'Warning' | 'Critical';
+  status: "Healthy" | "Warning" | "Critical";
   healthScore: number;
   lastReportTime: string;
   activeIssues: number;
@@ -203,5 +202,75 @@ export interface DashboardMetrics {
   qps: string;
   healthDistribution: { name: string; value: number }[];
   trendData: { time: string; value: number }[];
-  hotIssues: { title: string; desc: string; }[];
+  hotIssues: { title: string; desc: string }[];
+}
+
+// --- Extended Plan Types for Context ---
+
+export type PlanType =
+  | "Explain Only"
+  | "Explain Analyze"
+  | "Explain Performance";
+
+export interface EnhancedNode extends Omit<ExecutionPlanNode, "children"> {
+  uId: string;
+  width: number;
+  totalCost: number;
+  selfCost: number;
+  percentage: number;
+  isCteDef: boolean;
+  isCteScan: boolean;
+  cteName: string;
+  children: EnhancedNode[];
+  nodeId?: string;
+  actualRows?: number;
+  actualTime?: number;
+  loops?: number;
+}
+
+export interface PlanIssue {
+  ruleId: string;
+  title: string;
+  severity: "High" | "Medium" | "Low";
+  type: "Risk" | "Suggestion";
+  description: string;
+  suggestion: string;
+  nodeUIds: string[];
+}
+
+export interface DiffNode {
+  uId: string;
+  id: string; // Sequential ID (n_0, n_1)
+  nodeId?: string; // DB Plan ID (1, 2)
+  operation: string;
+  cost: number;
+  totalCost: number;
+  selfCost: number;
+  rows: number;
+  width: number;
+  actualTime?: number;
+  actualRows?: number;
+  percentage: number;
+  details: string;
+  children: DiffNode[];
+}
+
+// --- History Types ---
+
+export interface VisHistoryItem {
+  id: string;
+  timestamp: number;
+  name: string;
+  sql: string;
+  planText: string;
+}
+
+export interface DiffHistoryItem {
+  id: string;
+  timestamp: number;
+  name: string;
+  mode: "unified" | "split";
+  left: string;
+  right: string;
+  unified: string;
 }

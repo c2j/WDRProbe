@@ -2,7 +2,7 @@
 name = "wdrprobe-desktop"
 version = "0.1.0"
 description = "WDRProbe Desktop - Database Query Performance Analysis Tool"
-authors = ["you"]
+authors = ["C2J"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
@@ -59,4 +59,3 @@ mockall = "0.12"
 tempfile = "3.8"
 rstest = "0.18"
 criterion = "0.5"
-

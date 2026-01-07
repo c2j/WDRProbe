@@ -1,5 +1,5 @@
-import React, { ReactNode, useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { ReactNode, useState, useRef, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   FileText,
@@ -15,9 +15,10 @@ import {
   Languages,
   Download,
   Upload,
-  Menu
-} from 'lucide-react';
-import { useI18n } from '../context/I18nContext';
+  Menu,
+  SplitSquareHorizontal,
+} from "lucide-react";
+import { useI18n } from "../context/I18nContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -33,17 +34,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (importExportRef.current && !importExportRef.current.contains(event.target as Node)) {
+      if (
+        importExportRef.current &&
+        !importExportRef.current.contains(event.target as Node)
+      ) {
         setImportExportMenuOpen(false);
       }
     };
 
     if (importExportMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [importExportMenuOpen]);
 
@@ -51,20 +55,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleImportPNG = async () => {
     try {
       // Open file dialog for PNG import
-      const { open } = await import('@tauri-apps/api/dialog');
+      const { open } = await import("@tauri-apps/api/dialog");
       const selected = await open({
         multiple: false,
-        filters: [{
-          name: 'PNG Image',
-          extensions: ['png']
-        }]
+        filters: [
+          {
+            name: "PNG Image",
+            extensions: ["png"],
+          },
+        ],
       });
-      if (selected && typeof selected === 'string') {
-        console.log('Import PNG:', selected);
+      if (selected && typeof selected === "string") {
+        console.log("Import PNG:", selected);
         // Handle PNG import logic here
       }
     } catch (error) {
-      console.error('Failed to import PNG:', error);
+      console.error("Failed to import PNG:", error);
     }
     setImportExportMenuOpen(false);
   };
@@ -72,17 +78,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleExportPNG = async () => {
     try {
       // Get the main content area to capture
-      const mainContent = document.querySelector('main');
+      const mainContent = document.querySelector("main");
       if (!mainContent) {
-        console.warn('No main content found to export');
+        console.warn("No main content found to export");
         setImportExportMenuOpen(false);
         return;
       }
 
       // Try to use html2canvas for PNG export
-      const html2canvas = await import('html2canvas');
+      const html2canvas = await import("html2canvas");
       const canvas = await html2canvas.default(mainContent as HTMLElement, {
-        backgroundColor: '#f9fafb',
+        backgroundColor: "#f9fafb",
         scale: 2, // Higher quality
       });
 
@@ -90,64 +96,81 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       canvas.toBlob(async (blob) => {
         if (blob) {
           // Use Tauri dialog to save the file
-          const { save } = await import('@tauri-apps/api/dialog');
+          const { save } = await import("@tauri-apps/api/dialog");
 
           const filePath = await save({
-            filters: [{
-              name: 'PNG Image',
-              extensions: ['png']
-            }],
-            defaultPath: `wdrprobe-export-${new Date().toISOString().slice(0, 10)}.png`
+            filters: [
+              {
+                name: "PNG Image",
+                extensions: ["png"],
+              },
+            ],
+            defaultPath: `wdrprobe-export-${new Date().toISOString().slice(0, 10)}.png`,
           });
 
           if (filePath) {
             // Convert blob to base64 and use download as fallback
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = document.createElement("a");
             a.href = url;
-            a.download = filePath.split('/').pop() || 'export.png';
+            a.download = filePath.split("/").pop() || "export.png";
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            console.log('PNG exported successfully:', filePath);
+            console.log("PNG exported successfully:", filePath);
           }
         }
-      }, 'image/png');
+      }, "image/png");
     } catch (error) {
-      console.error('Failed to export PNG:', error);
-      alert(language === 'zh'
-        ? '导出失败：请确保已安装 html2canvas 库'
-        : 'Export failed: Please ensure html2canvas library is installed');
+      console.error("Failed to export PNG:", error);
+      alert(
+        language === "zh"
+          ? "导出失败：请确保已安装 html2canvas 库"
+          : "Export failed: Please ensure html2canvas library is installed",
+      );
     }
     setImportExportMenuOpen(false);
   };
 
   const MENU_ITEMS = [
-    { path: '/', labelKey: 'menu.dashboard', icon: LayoutDashboard },
-    { path: '/reports', labelKey: 'menu.reports', icon: FileText },
-    { path: '/comparison', labelKey: 'menu.comparison', icon: GitCompare },
-    { path: '/visualizer', labelKey: 'menu.visualizer', icon: GitBranch },
-    { path: '/thresholds', labelKey: 'menu.thresholds', icon: Settings },
-    { path: '/sqlaudit', labelKey: 'menu.sqlaudit', icon: ShieldAlert },
-    { path: '/auditlog', labelKey: 'menu.auditlog', icon: History },
+    { path: "/", labelKey: "menu.dashboard", icon: LayoutDashboard },
+    { path: "/reports", labelKey: "menu.reports", icon: FileText },
+    { path: "/comparison", labelKey: "menu.comparison", icon: GitCompare },
+    { path: "/visualizer", labelKey: "menu.visualizer", icon: GitBranch },
+    {
+      path: "/plandiff",
+      labelKey: "menu.plandiff",
+      icon: SplitSquareHorizontal,
+    },
+    { path: "/thresholds", labelKey: "menu.thresholds", icon: Settings },
+    { path: "/sqlaudit", labelKey: "menu.sqlaudit", icon: ShieldAlert },
+    { path: "/auditlog", labelKey: "menu.auditlog", icon: History },
   ];
 
-  const currentLabel = MENU_ITEMS.find(m => m.path === location.pathname)?.labelKey;
+  const currentLabel = MENU_ITEMS.find(
+    (m) => m.path === location.pathname,
+  )?.labelKey;
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`${
-          sidebarOpen ? 'w-64' : 'w-20'
+          sidebarOpen ? "w-64" : "w-20"
         } bg-[#0f2c4b] text-white transition-all duration-300 ease-in-out flex flex-col shadow-xl z-20`}
       >
         {/* Logo Area */}
         <div className="h-16 flex items-center justify-center border-b border-gray-700">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg">W</div>
-            {sidebarOpen && <span className="font-bold text-lg tracking-wide truncate">WDRProbe</span>}
+            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg">
+              W
+            </div>
+            {sidebarOpen && (
+              <span className="font-bold text-lg tracking-wide truncate">
+                WDRProbe
+              </span>
+            )}
           </div>
         </div>
 
@@ -162,13 +185,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Link
                     to={item.path}
                     className={`flex items-center px-4 py-3 rounded-md transition-colors ${
-                      isActive 
-                        ? 'bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      isActive
+                        ? "bg-blue-600 text-white shadow-md"
+                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
                     }`}
                   >
                     <Icon size={20} className="min-w-[20px]" />
-                    {sidebarOpen && <span className="ml-3 truncate">{t(item.labelKey)}</span>}
+                    {sidebarOpen && (
+                      <span className="ml-3 truncate">{t(item.labelKey)}</span>
+                    )}
                   </Link>
                 </li>
               );
@@ -178,12 +203,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Toggle Button */}
         <div className="p-4 border-t border-gray-700">
-            <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="w-full flex items-center justify-center p-2 rounded-md hover:bg-gray-800 transition-colors"
-            >
-                {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
-            </button>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-full flex items-center justify-center p-2 rounded-md hover:bg-gray-800 transition-colors"
+          >
+            {sidebarOpen ? (
+              <ChevronLeft size={20} />
+            ) : (
+              <ChevronRight size={20} />
+            )}
+          </button>
         </div>
       </aside>
 
@@ -192,7 +221,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {/* Top Navbar */}
         <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
           <div className="text-gray-500 text-sm">
-             <span className="font-semibold text-gray-700">WDRProbe</span> / {currentLabel ? t(currentLabel) : 'Page'}
+            <span className="font-semibold text-gray-700">WDRProbe</span> /{" "}
+            {currentLabel ? t(currentLabel) : "Page"}
           </div>
 
           <div className="flex items-center space-x-6">
@@ -201,10 +231,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <button
                 onClick={() => setImportExportMenuOpen(!importExportMenuOpen)}
                 className="text-gray-500 hover:text-blue-600 flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-50 transition-colors"
-                title={language === 'zh' ? '导入/导出PNG' : 'Import/Export PNG'}
+                title={language === "zh" ? "导入/导出PNG" : "Import/Export PNG"}
               >
                 <Menu size={20} />
-                <span className="text-sm font-medium">{language === 'zh' ? 'PNG' : 'PNG'}</span>
+                <span className="text-sm font-medium">
+                  {language === "zh" ? "PNG" : "PNG"}
+                </span>
               </button>
 
               {importExportMenuOpen && (
@@ -214,14 +246,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                   >
                     <Upload size={16} />
-                    <span>{language === 'zh' ? '导入PNG' : 'Import PNG'}</span>
+                    <span>{language === "zh" ? "导入PNG" : "Import PNG"}</span>
                   </button>
                   <button
                     onClick={handleExportPNG}
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                   >
                     <Download size={16} />
-                    <span>{language === 'zh' ? '导出PNG' : 'Export PNG'}</span>
+                    <span>{language === "zh" ? "导出PNG" : "Export PNG"}</span>
                   </button>
                 </div>
               )}
@@ -229,34 +261,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Language Switcher */}
             <button
-                onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-                className="text-gray-500 hover:text-blue-600 flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-50 transition-colors"
-                title="Switch Language"
+              onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
+              className="text-gray-500 hover:text-blue-600 flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-50 transition-colors"
+              title="Switch Language"
             >
-                <Languages size={20} />
-                <span className="text-sm font-medium">{language === 'zh' ? 'EN' : '中文'}</span>
+              <Languages size={20} />
+              <span className="text-sm font-medium">
+                {language === "zh" ? "EN" : "中文"}
+              </span>
             </button>
 
             <div className="relative cursor-pointer text-gray-500 hover:text-blue-600">
-                <Bell size={20} />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
+              <Bell size={20} />
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                3
+              </span>
             </div>
             <div className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md">
-                <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                    <User size={16} />
-                </div>
-                <div className="text-sm">
-                    <p className="font-medium text-gray-700">Zhang San</p>
-                    <p className="text-xs text-gray-400">{t('header.role')}</p>
-                </div>
+              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                <User size={16} />
+              </div>
+              <div className="text-sm">
+                <p className="font-medium text-gray-700">Zhang San</p>
+                <p className="text-xs text-gray-400">{t("header.role")}</p>
+              </div>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6 bg-gray-50">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto p-6 bg-gray-50">{children}</main>
       </div>
     </div>
   );

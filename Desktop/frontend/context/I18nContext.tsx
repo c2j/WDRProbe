@@ -15,6 +15,7 @@ const translations = {
     "menu.reports": "WDR Reports",
     "menu.comparison": "Comparison",
     "menu.visualizer": "Plan Visualizer",
+    "menu.plandiff": "Plan Comparison",
     "menu.thresholds": "Thresholds",
     "menu.sqlaudit": "SQL Audit",
     "menu.auditlog": "Audit Logs",
@@ -225,7 +226,7 @@ const translations = {
     "vis.opt.indexOppDesc":
       "Seq Scan on 'users' with filter. Consider creating an index.",
     "vis.opt.loadToSee": "Load a plan to see suggestions",
-    "vis.hot.title": "WDR Hot SQLs",
+    "vis.hot.title": "WDR Top SQL",
     "vis.hot.viewFull": "View Full Report",
     "vis.hot.preview": "SQL Preview",
     "vis.hot.time": "Time",
@@ -233,142 +234,211 @@ const translations = {
     "vis.hot.action": "Action",
     "vis.hot.load": "Load",
 
-    // Knowledge Base
-    "vis.kb.title": "Operator Knowledge",
-    "vis.kb.search": "Search operators...",
-    "vis.kb.pros": "When to use (Pros)",
-    "vis.kb.cons": "Performance Risks (Cons)",
+    // Diff
+    "diff.title": "Execution Plan Comparison",
+    "diff.compare": "Compare",
+    "diff.loadSample": "Load Sample",
+    "diff.baseline": "Baseline Plan",
+    "diff.target": "Target Plan",
+    "diff.mode.unified": "Unified Input (Smart Split)",
+    "diff.mode.split": "Split Input (Two Panes)",
+    "diff.tip.unified":
+      "Tip: Paste both plans here. We'll automatically split them by looking for headers like 'Plan 2', 'Optimized Plan', or duplicate 'id|operation' tables.",
+    "diff.placeholder.unified":
+      "Paste baseline and optimized plans together here...",
+    "diff.placeholder.left": "Paste original execution plan here...",
+    "diff.placeholder.right": "Paste optimized execution plan here...",
+    "diff.col.operation": "Operation",
+    "diff.col.costTime": "Cost/Time",
+    "diff.col.rows": "Rows",
+    "diff.col.costPct": "Cost %",
+    "diff.analysis.title": "Risk Analysis",
+    "diff.analysis.newRisk": "New Risk: {risk}",
+    "diff.analysis.resolved": "Resolved: {risk}",
+    "diff.metric.time": "Time",
+    "diff.metric.execTime": "Execution Time",
+    "diff.risk.diskSpill": "Disk Spill Detected (High Risk)",
+    "diff.risk.largeSeqScan": "Large Seq Scan ({rows}k rows)",
+    "diff.risk.highCost": "Very High Cost (>10k)",
+    "diff.risk.nestLoop": "High Volume Nested Loop",
+    "diff.risk.badEst": "Severe Statistics Misestimation (>10x)",
+    "diff.verdict.improved": "Improved",
+    "diff.verdict.regressed": "Regressed",
+    "diff.verdict.similar": "Similar",
+    "diff.verdict.new": "New",
+    "diff.verdict.removed": "Removed",
 
-    // KB Entries
-    "vis.kb.seqScan.title": "Seq Scan (Sequential Scan)",
-    "vis.kb.seqScan.desc":
-      "Reads every row in the table sequentially from beginning to end.",
-    "vis.kb.seqScan.pros":
-      "Efficient for small tables or when a query needs to fetch a large portion (>20%) of the table data.",
+    // Knowledge Base General
+    "vis.kb.title": "GaussDB Operator KB",
+    "vis.kb.search": "Search operators or risks...",
+    "vis.kb.pros": "Advice (Action)",
+    "vis.kb.cons": "Risk (Problem)",
+
+    // KB Entries (Rules 001-013 included implicitly or explicitly)
+    "vis.kb.seqScan.title": "Seq Scan",
+    "vis.kb.seqScan.desc": "Reads every row in the table. (Rule: Gauss-XN-002)",
+    "vis.kb.seqScan.pros": "OK for small tables or fetching >20% data.",
     "vis.kb.seqScan.cons":
-      "Very slow on large tables if only a few rows are needed. High I/O consumption.",
+      "[Mid Risk] Full table scan on large tables (>10k rows). Check for missing or inefficient indexes.",
 
     "vis.kb.idxScan.title": "Index Scan",
-    "vis.kb.idxScan.desc":
-      "Traverses a B-Tree index to find specific row locations, then fetches the actual data from the table heap.",
-    "vis.kb.idxScan.pros":
-      "Extremely fast for retrieving a small number of rows (high selectivity).",
+    "vis.kb.idxScan.desc": "Traverses B-Tree index. (Rule: Gauss-XN-009)",
+    "vis.kb.idxScan.pros": "Fast for high selectivity.",
     "vis.kb.idxScan.cons":
-      "Becomes slower than Seq Scan if too many random I/O operations are required (low selectivity).",
+      "[High Risk] If followed by a Filter on index columns, it implies implicit conversion or complex expression preventing index coverage.",
 
     "vis.kb.idxOnlyScan.title": "Index Only Scan",
-    "vis.kb.idxOnlyScan.desc":
-      "Retrieves data directly from the index without visiting the table heap (Covering Index).",
-    "vis.kb.idxOnlyScan.pros":
-      "The fastest scanning method. Eliminates random table I/O completely.",
-    "vis.kb.idxOnlyScan.cons":
-      "Requires all requested columns to be present in the index. May still check heap for visibility (VM).",
+    "vis.kb.idxOnlyScan.desc": "Retrieves data directly from index.",
+    "vis.kb.idxOnlyScan.pros": "Fastest scan method. No heap access.",
+    "vis.kb.idxOnlyScan.cons": "Requires visibility map check.",
 
-    "vis.kb.bitmapScan.title": "Bitmap Scan (Heap/Index)",
+    "vis.kb.bitmapScan.title": "Bitmap Scan",
     "vis.kb.bitmapScan.desc":
-      "Builds a bitmap of matching pages from an index, sorts them, and then reads the table sequentially.",
-    "vis.kb.bitmapScan.pros":
-      'Solves the "random I/O" problem of standard Index Scans when fetching a moderate amount of data.',
+      "Builds bitmap from index then reads heap. (Rule: Gauss-XN-007)",
+    "vis.kb.bitmapScan.pros": "Create composite index covering predicates.",
     "vis.kb.bitmapScan.cons":
-      "Consumes memory to build the bitmap. Lossy bitmaps can occur if memory is insufficient.",
+      "[Mid Risk] If Recheck Cond rows are high but Filter removes most, index selectivity is poor.",
 
-    "vis.kb.nestLoop.title": "Nested Loop Join",
-    "vis.kb.nestLoop.desc":
-      "For every row in the outer table, it scans the inner table for matches.",
-    "vis.kb.nestLoop.pros":
-      "Best for joining small datasets or when the inner table is efficiently indexed.",
+    "vis.kb.nestLoop.title": "Nested Loop",
+    "vis.kb.nestLoop.desc": "Double loop join. (Rule: Gauss-XN-004)",
+    "vis.kb.nestLoop.pros": "Good for small datasets.",
     "vis.kb.nestLoop.cons":
-      "Performance degrades exponentially (M * N) if tables are large and the inner table lacks an index.",
+      "[High Risk] If no Index Cond, it indicates a Cartesian Product! Check join conditions.",
 
     "vis.kb.hashJoin.title": "Hash Join",
-    "vis.kb.hashJoin.desc":
-      "Builds a hash table from the inner table in memory, then probes it with rows from the outer table.",
-    "vis.kb.hashJoin.pros":
-      "The standard for joining large, unsorted datasets. Usually faster than Nested Loop for bulk data.",
-    "vis.kb.hashJoin.cons":
-      "High memory usage. If work_mem is exceeded, it spills to disk (temp files), killing performance.",
+    "vis.kb.hashJoin.desc": "Builds hash table in memory.",
+    "vis.kb.hashJoin.pros": "Standard for large joins.",
+    "vis.kb.hashJoin.cons": 'Check for "Disk Spill" if work_mem is exceeded.',
 
     "vis.kb.mergeJoin.title": "Merge Join",
-    "vis.kb.mergeJoin.desc": "Zips two sorted input streams together.",
-    "vis.kb.mergeJoin.pros":
-      "Extremely fast and memory-efficient if inputs are already sorted (e.g., by index).",
-    "vis.kb.mergeJoin.cons":
-      "Requires sorting data first (Sort node) if indices are not available, which is expensive.",
+    "vis.kb.mergeJoin.desc": "Zips sorted inputs.",
+    "vis.kb.mergeJoin.pros": "Efficient for pre-sorted data.",
+    "vis.kb.mergeJoin.cons": "Requires expensive Sort if data not ordered.",
 
-    "vis.kb.agg.title": "Aggregation (Hash/Group)",
-    "vis.kb.agg.desc":
-      "Performs grouping operations (GROUP BY) or duplicate removal.",
-    "vis.kb.agg.pros":
-      "HashAggregate is generally faster but uses memory. GroupAggregate requires sorted input but uses less memory.",
+    "vis.kb.agg.title": "Aggregation",
+    "vis.kb.agg.desc": "GROUP BY operations. (Rule: Gauss-XN-010)",
+    "vis.kb.agg.pros": "Summarizes data.",
     "vis.kb.agg.cons":
-      'Watch for "Disk" spills in HashAggregate if memory is insufficient.',
+      "[High Risk] Group By might not push down to index (compare with Oracle).",
 
     "vis.kb.sort.title": "Sort",
-    "vis.kb.sort.desc":
-      "Sorts the dataset in memory (QuickSort) or on disk (MergeSort).",
-    "vis.kb.sort.pros":
-      "Necessary for ORDER BY, Merge Joins, and some Window Functions.",
-    "vis.kb.sort.cons":
-      "CPU intensive. Disk-based sorts are significantly slower than memory sorts.",
+    "vis.kb.sort.desc": "Sorts dataset.",
+    "vis.kb.sort.pros": "Required for Order By.",
+    "vis.kb.sort.cons": "Watch for Disk Spill (external merge).",
 
-    "vis.kb.cteScan.title": "CTE Scan (Common Table Expression)",
-    "vis.kb.cteScan.desc":
-      "Reads results from a temporary result set defined in a WITH clause.",
-    "vis.kb.cteScan.pros":
-      "Makes SQL readable and modular. Allows reusing the same result set multiple times in a query.",
-    "vis.kb.cteScan.cons":
-      "Acts as an optimization fence (materialized) in some versions, preventing predicate pushdown.",
+    "vis.kb.cteScan.title": "CTE Scan",
+    "vis.kb.cteScan.desc": "Common Table Expression.",
+    "vis.kb.cteScan.pros": "Readability.",
+    "vis.kb.cteScan.cons": "Optimization fence preventing pushdown.",
 
     "vis.kb.materialize.title": "Materialize",
-    "vis.kb.materialize.desc":
-      "Stores the result of a sub-operation in memory (or disk) to allow repeated access.",
-    "vis.kb.materialize.pros":
-      "Essential for Nested Loops where the inner side is complex, or for Merge Joins.",
-    "vis.kb.materialize.cons":
-      "Adds startup overhead and consumes memory. High cost if the result set is large.",
+    "vis.kb.materialize.desc": "Stores sub-result.",
+    "vis.kb.materialize.pros": "Reuses data.",
+    "vis.kb.materialize.cons": "Memory usage overhead.",
 
     "vis.kb.limit.title": "Limit",
-    "vis.kb.limit.desc":
-      "Stops processing once a specified number of rows have been returned.",
-    "vis.kb.limit.pros":
-      'Crucial for pagination and "Top N" queries. Reduces workload significantly if top rows are found quickly.',
-    "vis.kb.limit.cons":
-      "If the underlying sort or filter is expensive, Limit only helps after the first N rows are computed.",
+    "vis.kb.limit.desc": "Limits output rows.",
+    "vis.kb.limit.pros": "Top-N queries.",
+    "vis.kb.limit.cons": "Expensive if sort precedes it.",
 
-    "vis.kb.subqueryScan.title": "Subquery Scan",
-    "vis.kb.subqueryScan.desc":
-      "Reads the output of a subquery as if it were a physical table.",
+    "vis.kb.subqueryScan.title": "Subquery / SubPlan",
+    "vis.kb.subqueryScan.desc": "Subquery execution. (Rule: Gauss-XN-003, 012)",
     "vis.kb.subqueryScan.pros":
-      "Enables processing of complex operations (like grouping/window functions) before joining.",
+      "Logic isolation. Suggest rewrite to CTE or Join.",
     "vis.kb.subqueryScan.cons":
-      'Often implies the optimizer could not "flatten" the query, potentially preventing index usage on underlying tables.',
+      "[Mid/High Risk] Associated with unnesting failures. Update with Set Subquery causes multiple executions.",
 
-    // Visualizer Help Guide
-    "vis.guide.title": "GaussDB Execution Plan Guide",
-    "vis.guide.scans": "Scan Methods",
-    "vis.guide.joins": "Join Methods",
-    "vis.guide.others": "Other Operators",
-    "vis.guide.seqScan": "Seq Scan",
-    "vis.guide.seqScanDesc":
-      "Full table scan. Reads every row in the table. Usually efficient for small tables or when retrieving a large percentage of rows, but slow for large tables with selective filters.",
-    "vis.guide.indexScan": "Index Scan",
-    "vis.guide.indexScanDesc":
-      "Uses an index to find specific rows. Much faster than Seq Scan for selective queries.",
-    "vis.guide.bitmapScan": "Bitmap Heap/Index Scan",
-    "vis.guide.bitmapScanDesc":
-      "Combines multiple index scans or handles too many non-sequential row fetches efficiently.",
-    "vis.guide.nestLoop": "Nested Loop",
-    "vis.guide.nestLoopDesc":
-      "Joins two tables by looping through every row of the outer table and finding matches in the inner table. Efficient when the outer table is small or the inner table is indexed.",
-    "vis.guide.hashJoin": "Hash Join",
-    "vis.guide.hashJoinDesc":
-      'Loads the candidate rows from the "inner" table into a hash table, then scans the "outer" table to probe for matches. Good for large, unsorted datasets.',
-    "vis.guide.mergeJoin": "Merge Join",
-    "vis.guide.mergeJoinDesc":
-      "Joins two sorted datasets. Very efficient if the input data is already sorted (e.g., by an index).",
-    "vis.guide.agg": "Aggregation (Hash/Group)",
-    "vis.guide.aggDesc":
-      "Operations like GROUP BY or DISTINCT. HashAggregate uses a hash table, while GroupAggregate requires sorted input.",
+    "vis.kb.append.title": "Append",
+    "vis.kb.append.desc": "Combines results (UNION ALL).",
+    "vis.kb.append.pros": "Partition handling.",
+    "vis.kb.append.cons": "Sequential overhead.",
+
+    "vis.kb.result.title": "Result",
+    "vis.kb.result.desc": "Returns constant or scalar.",
+    "vis.kb.result.pros": "Fast.",
+    "vis.kb.result.cons": "N/A",
+
+    "vis.kb.partIter.title": "Partition Iterator",
+    "vis.kb.partIter.desc": "Iterates partitions. (Rule: Gauss-XN-005)",
+    "vis.kb.partIter.pros": "Pruning.",
+    "vis.kb.partIter.cons":
+      "[High Risk] If iterations are high, Partition Pruning failed. Check filter conditions.",
+
+    "vis.kb.diskSpill.title": "Disk Spill / Temp File",
+    "vis.kb.diskSpill.desc":
+      "Memory insufficient, writing to disk. (Rule: Gauss-XN-008)",
+    "vis.kb.diskSpill.pros": "Allows large query completion.",
+    "vis.kb.diskSpill.cons":
+      '[High Risk] Severe performance degradation. "external merge", "Disk Usage". Increase work_mem.',
+
+    "vis.kb.userFunc.title": "User Function",
+    "vis.kb.userFunc.desc": "Custom function execution. (Rule: Gauss-XN-011)",
+    "vis.kb.userFunc.pros": "Business logic.",
+    "vis.kb.userFunc.cons":
+      "[High Risk] If inside Join Filter with high rows, efficiency drops drastically.",
+
+    "vis.kb.rownum.title": "Rownum",
+    "vis.kb.rownum.desc": "Pagination/Limiting. (Rule: Gauss-XN-013)",
+    "vis.kb.rownum.pros": "Paging.",
+    "vis.kb.rownum.cons":
+      "[High Risk] If rows > 10000, index might not be pushed down.",
+
+    // Analysis Rules (Dynamic Issues)
+    "vis.rule.001.title": "High Total Cost",
+    "vis.rule.001.desc": "Total cost is {cost}, exceeding threshold 1000.",
+    "vis.rule.001.sugg": "Analyze execution plan to reduce cost.",
+
+    "vis.rule.002.title": "Large Seq Scan",
+    "vis.rule.002.desc": "Seq Scan on large table (>10k rows).",
+    "vis.rule.002.sugg": "Check if indexes exist or can be used effectively.",
+
+    "vis.rule.003.title": "SubPlan Detected",
+    "vis.rule.003.desc": "Plan contains SubPlan/SubQuery operators.",
+    "vis.rule.003.sugg":
+      "Consider rewriting using JOIN or CTE for better optimization.",
+
+    "vis.rule.004.title": "Cartesian Product",
+    "vis.rule.004.desc": "Nested Loop without Index Condition.",
+    "vis.rule.004.sugg":
+      "CRITICAL: Check join conditions immediately to avoid M*N complexity.",
+
+    "vis.rule.005.title": "No Partition Pruning",
+    "vis.rule.005.desc":
+      "Partition Iterator implies scanning multiple/all partitions.",
+    "vis.rule.005.sugg": "Check if filter conditions include partition key.",
+
+    "vis.rule.006.title": "Slow SQL (>3s)",
+    "vis.rule.006.desc": "Execution time is {time}ms.",
+    "vis.rule.006.sugg": "Analyze bottlenecks (I/O, locks, CPU).",
+
+    "vis.rule.007.title": "Bitmap Scan",
+    "vis.rule.007.desc": "Bitmap Heap/Index Scan usage.",
+    "vis.rule.007.sugg":
+      "Consider composite index if Recheck step filters many rows.",
+
+    "vis.rule.008.title": "Disk Spill / Memory",
+    "vis.rule.008.desc": "Operation spilled to Disk (Temp File).",
+    "vis.rule.008.sugg":
+      "Increase work_mem or optimize query to reduce intermediate dataset size.",
+
+    "vis.rule.009.title": "Index Scan with Filter",
+    "vis.rule.009.desc": "Index Scan followed by Filter operator.",
+    "vis.rule.009.sugg":
+      "Index not covering all predicates. Check for implicit conversions.",
+
+    "vis.rule.011.title": "User Function in Filter",
+    "vis.rule.011.desc": "Custom function call detected in filter.",
+    "vis.rule.011.sugg":
+      "Ensure function efficiency or avoid executing on large row sets.",
+
+    "vis.rule.012.title": "Update Set Subquery",
+    "vis.rule.012.desc": "Multiple SubPlans detected in Update.",
+    "vis.rule.012.sugg":
+      "Rewrite as Update ... From or Merge to avoid multiple executions per row.",
+
+    "vis.rule.013.title": "Inefficient Rownum",
+    "vis.rule.013.desc": "Rownum filter on large result set (>10k rows).",
+    "vis.rule.013.sugg": "Check if index pushdown is possible.",
   },
   zh: {
     // Menu
@@ -376,6 +446,7 @@ const translations = {
     "menu.reports": "WDR 报告",
     "menu.comparison": "对比分析",
     "menu.visualizer": "执行计划分析",
+    "menu.plandiff": "执行计划对比",
     "menu.thresholds": "阈值配置",
     "menu.sqlaudit": "SQL 审计",
     "menu.auditlog": "审计日志",
@@ -592,128 +663,202 @@ const translations = {
     "vis.hot.action": "Action",
     "vis.hot.load": "Load",
 
-    // Knowledge Base
-    "vis.kb.title": "算子知识库",
-    "vis.kb.search": "搜索算子...",
-    "vis.kb.pros": "适用场景 (优点)",
-    "vis.kb.cons": "性能风险 (缺点)",
+    // Diff
+    "diff.title": "执行计划对比",
+    "diff.compare": "对比",
+    "diff.loadSample": "加载样例",
+    "diff.baseline": "基准计划",
+    "diff.target": "目标计划",
+    "diff.mode.unified": "统一输入 (智能拆分)",
+    "diff.mode.split": "分栏输入 (左右对比)",
+    "diff.tip.unified":
+      "提示: 在此粘贴两个计划。我们会根据 'Plan 2', 'Optimized Plan' 或重复的表头自动拆分。",
+    "diff.placeholder.unified": "在此处粘贴基准计划和优化后的计划...",
+    "diff.placeholder.left": "粘贴原始执行计划...",
+    "diff.placeholder.right": "粘贴优化后的执行计划...",
+    "diff.col.operation": "算子操作",
+    "diff.col.costTime": "成本/时间",
+    "diff.col.rows": "行数",
+    "diff.col.costPct": "成本占比",
+    "diff.analysis.title": "风险分析",
+    "diff.analysis.newRisk": "新增风险: {risk}",
+    "diff.analysis.resolved": "已解决: {risk}",
+    "diff.metric.time": "时间",
+    "diff.metric.execTime": "执行时间",
+    "diff.risk.diskSpill": "检测到落盘 (高风险)",
+    "diff.risk.largeSeqScan": "大表全表扫描 ({rows}k 行)",
+    "diff.risk.highCost": "成本极高 (>10k)",
+    "diff.risk.nestLoop": "大数据量嵌套循环",
+    "diff.risk.badEst": "统计信息严重偏差 (>10倍)",
+    "diff.verdict.improved": "优化成功",
+    "diff.verdict.regressed": "性能退化",
+    "diff.verdict.similar": "无明显变化",
+    "diff.verdict.new": "新增",
+    "diff.verdict.removed": "移除",
 
+    // Knowledge Base General
+    "vis.kb.title": "GaussDB 算子知识库",
+    "vis.kb.search": "搜索算子或风险点...",
+    "vis.kb.pros": "优化建议 (Action)",
+    "vis.kb.cons": "发现问题 (Risk)",
+
+    // KB Entries (Rules 001-013 included implicitly or explicitly)
     "vis.kb.seqScan.title": "顺序扫描 (Seq Scan)",
-    "vis.kb.seqScan.desc": "从头到尾读取表中的每一行数据。",
-    "vis.kb.seqScan.pros":
-      "适用于极小的表，或者查询需要获取表中大部分数据（通常>20%）的情况。",
+    "vis.kb.seqScan.desc": "全表顺序扫描。 (规则ID: Gauss-XN-002)",
+    "vis.kb.seqScan.pros": "对于小表或需获取全量数据的场景可接受。",
     "vis.kb.seqScan.cons":
-      "如果表很大且只需少量行，全表扫描效率极低，会产生大量磁盘 I/O。",
+      "[中风险] 若 Rows > 10000 且 Cost > 100，可能存在缺失索引或隐式转换问题。",
 
     "vis.kb.idxScan.title": "索引扫描 (Index Scan)",
-    "vis.kb.idxScan.desc":
-      "遍历 B-Tree 索引找到特定行的物理位置，然后再回表获取数据。",
-    "vis.kb.idxScan.pros": "获取少量数据（高选择性）时速度极快。",
+    "vis.kb.idxScan.desc": "索引范围扫描。 (规则ID: Gauss-XN-009)",
+    "vis.kb.idxScan.pros": "高选择性查询的首选。",
     "vis.kb.idxScan.cons":
-      "如果需要获取的数据行很多且分散，产生的随机 I/O 会导致性能比顺序扫描更差。",
+      "[高风险] 若存在 Filter 且过滤条件包含索引字段，说明存在隐式转换或表达式，导致无法走索引覆盖，回表开销大。",
 
     "vis.kb.idxOnlyScan.title": "仅索引扫描 (Index Only Scan)",
-    "vis.kb.idxOnlyScan.desc":
-      "直接从索引中获取所需数据，无需回表读取（覆盖索引）。",
-    "vis.kb.idxOnlyScan.pros": "最快的扫描方式，完全避免了随机表读取。",
-    "vis.kb.idxOnlyScan.cons":
-      "要求查询的所有列都包含在索引中。如果可见性映射（VM）未更新，仍需回表检查可见性。",
+    "vis.kb.idxOnlyScan.desc": "直接从索引中获取数据。",
+    "vis.kb.idxOnlyScan.pros": "性能最优，避免回表。",
+    "vis.kb.idxOnlyScan.cons": "依赖可见性映射 (VM)，需定期 Vacuum。",
 
     "vis.kb.bitmapScan.title": "位图扫描 (Bitmap Scan)",
-    "vis.kb.bitmapScan.desc":
-      "先通过索引建立匹配页的位图，排序后按顺序读取表数据。",
-    "vis.kb.bitmapScan.pros":
-      "解决了普通索引扫描在获取中等量数据时的“随机 I/O”问题。",
+    "vis.kb.bitmapScan.desc": "位图索引扫描。 (规则ID: Gauss-XN-007)",
+    "vis.kb.bitmapScan.pros": "创建联合索引覆盖查询条件。",
     "vis.kb.bitmapScan.cons":
-      "构建位图需要消耗内存。如果内存不足，位图可能变得有损（Lossy），导致需重新检查行。",
+      "[中风险] 若 Recheck Cond 行数多但 Filter 过滤掉大部分数据，说明索引效率低。",
 
-    "vis.kb.nestLoop.title": "嵌套循环连接 (Nested Loop)",
-    "vis.kb.nestLoop.desc":
-      "对于外表的每一行，扫描内表以查找匹配项（双重循环）。",
-    "vis.kb.nestLoop.pros": "连接小数据集，或内表有高效索引时性能最佳。",
+    "vis.kb.nestLoop.title": "嵌套循环 (Nested Loop)",
+    "vis.kb.nestLoop.desc": "双层循环连接。 (规则ID: Gauss-XN-004)",
+    "vis.kb.nestLoop.pros": "小数据集关联效率高。",
     "vis.kb.nestLoop.cons":
-      "如果表很大且内表无索引，性能会呈指数级下降 (M * N)。",
+      "[高风险] 若没有 Index Cond，极可能发生了笛卡尔积！请立即检查关联条件。",
 
     "vis.kb.hashJoin.title": "哈希连接 (Hash Join)",
-    "vis.kb.hashJoin.desc":
-      "将“内”表加载到内存哈希表中，然后扫描“外”表进行探测匹配。",
-    "vis.kb.hashJoin.pros": "大数据集关联的标准方式，通常比嵌套循环快。",
-    "vis.kb.hashJoin.cons":
-      "内存消耗大。如果超出 work_mem，会溢出到磁盘（临时文件），严重影响性能。",
+    "vis.kb.hashJoin.desc": "内存哈希表连接。",
+    "vis.kb.hashJoin.pros": "大数据关联标准方式。",
+    "vis.kb.hashJoin.cons": "内存敏感，若出现 Disk Spill 则性能急剧下降。",
 
     "vis.kb.mergeJoin.title": "归并连接 (Merge Join)",
-    "vis.kb.mergeJoin.desc": "像拉链一样合并两个已排序的输入流。",
-    "vis.kb.mergeJoin.pros":
-      "如果输入数据已经排序（如通过索引），则非常高效且省内存。",
-    "vis.kb.mergeJoin.cons": "如果数据未排序，需要先执行 Sort 操作，成本昂贵。",
+    "vis.kb.mergeJoin.desc": "排序后合并。",
+    "vis.kb.mergeJoin.pros": "输入已排序时效率极高。",
+    "vis.kb.mergeJoin.cons": "若需 Sort 操作则成本昂贵。",
 
-    "vis.kb.agg.title": "聚合 (Hash/Group)",
-    "vis.kb.agg.desc": "执行 GROUP BY 分组或去重操作。",
-    "vis.kb.agg.pros":
-      "HashAggregate 通常更快但耗内存；GroupAggregate 省内存但需排序。",
-    "vis.kb.agg.cons": "HashAggregate 内存不足时会落盘，需关注性能日志。",
+    "vis.kb.agg.title": "聚合操作 (Aggregate)",
+    "vis.kb.agg.desc": "分组或求和。 (规则ID: Gauss-XN-010)",
+    "vis.kb.agg.pros": "手动优化 SQL 或调整参数。",
+    "vis.kb.agg.cons":
+      "[高风险] GaussDB 下子查询 Group By 索引可能无法内推（对比 Oracle），导致全表扫描。",
 
     "vis.kb.sort.title": "排序 (Sort)",
-    "vis.kb.sort.desc":
-      "在内存（QuickSort）或磁盘（MergeSort）中对数据进行排序。",
-    "vis.kb.sort.pros": "ORDER BY、归并连接和部分窗口函数所必需的。",
-    "vis.kb.sort.cons":
-      "CPU 密集型操作。一旦内存不足触发磁盘排序，速度会大幅下降。",
+    "vis.kb.sort.desc": "数据排序。",
+    "vis.kb.sort.pros": "Order By 必须。",
+    "vis.kb.sort.cons": '关注是否有 "external merge" 落盘现象。',
 
-    "vis.kb.cteScan.title": "CTE 扫描 (CTE Scan)",
-    "vis.kb.cteScan.desc": "读取 WITH 子句定义的临时结果集。",
-    "vis.kb.cteScan.pros":
-      "提高 SQL 可读性和模块化。允许在查询中多次复用同一个结果集。",
-    "vis.kb.cteScan.cons":
-      "在某些版本中会作为优化栅栏（物化），阻止谓词下推，可能导致性能降低。",
+    "vis.kb.cteScan.title": "CTE 扫描",
+    "vis.kb.cteScan.desc": "通用表达式扫描。",
+    "vis.kb.cteScan.pros": "提升代码可读性。",
+    "vis.kb.cteScan.cons": "可能成为优化器栅栏，阻碍谓词下推。",
 
     "vis.kb.materialize.title": "物化 (Materialize)",
-    "vis.kb.materialize.desc":
-      "将子操作的结果存储在内存（或磁盘）中，以便重复访问。",
-    "vis.kb.materialize.pros": "对于内表复杂的嵌套循环连接或归并连接是必需的。",
-    "vis.kb.materialize.cons":
-      "增加启动开销并消耗内存。如果结果集很大，成本会很高。",
+    "vis.kb.materialize.desc": "中间结果存储。",
+    "vis.kb.materialize.pros": "支持重复读取。",
+    "vis.kb.materialize.cons": "增加内存和启动开销。",
 
     "vis.kb.limit.title": "限制 (Limit)",
-    "vis.kb.limit.desc": "一旦返回指定数量的行，就停止处理。",
-    "vis.kb.limit.pros":
-      "对于分页和“Top N”查询至关重要。如果能快速找到前 N 行，可显著减少负载。",
-    "vis.kb.limit.cons":
-      "如果底层的排序或过滤很昂贵，Limit 只有在计算出前 N 行后才能发挥作用。",
+    "vis.kb.limit.desc": "返回部分行。",
+    "vis.kb.limit.pros": "分页查询。",
+    "vis.kb.limit.cons": "若下层有 Sort，则必须完成排序才能 Limit。",
 
-    "vis.kb.subqueryScan.title": "子查询扫描 (Subquery Scan)",
-    "vis.kb.subqueryScan.desc": "将子查询的输出作为物理表进行读取。",
-    "vis.kb.subqueryScan.pros":
-      "允许在连接之前处理复杂操作（如分组/窗口函数）。",
+    "vis.kb.subqueryScan.title": "子查询/SubPlan",
+    "vis.kb.subqueryScan.desc": "子查询执行。 (规则ID: Gauss-XN-003, 012)",
+    "vis.kb.subqueryScan.pros": "逻辑隔离。建议改写为 CTE 或 Join。",
     "vis.kb.subqueryScan.cons":
-      "通常意味着优化器无法“扁平化”查询，可能阻止对底层表使用索引。",
+      "[高风险] 1. Update Set 使用子查询会导致多字段多次执行。 2. 结合 SeqScan/NestLoop 易导致性能问题。",
 
-    // Visualizer Help Guide
-    "vis.guide.title": "GaussDB 执行计划指南",
-    "vis.guide.scans": "扫描方式",
-    "vis.guide.joins": "连接方式",
-    "vis.guide.others": "其他算子",
-    "vis.guide.seqScan": "顺序扫描 (Seq Scan)",
-    "vis.guide.seqScanDesc":
-      "全表扫描。读取表中的每一行。对于小表或读取大部分数据时效率较高，但对于大表且过滤性强的查询，效率较低。",
-    "vis.guide.indexScan": "索引扫描 (Index Scan)",
-    "vis.guide.indexScanDesc":
-      "使用索引查找特定行。对于选择性高的查询，比全表扫描快得多。",
-    "vis.guide.bitmapScan": "位图扫描 (Bitmap Heap/Index Scan)",
-    "vis.guide.bitmapScanDesc":
-      "结合多个索引扫描，或高效处理大量非连续的行获取。",
-    "vis.guide.nestLoop": "嵌套循环 (Nested Loop)",
-    "vis.guide.nestLoopDesc":
-      "通过遍历外表的每一行并在内表中查找匹配项来连接两个表。当外表较小或内表有索引时效率最高。",
-    "vis.guide.hashJoin": "哈希连接 (Hash Join)",
-    "vis.guide.hashJoinDesc":
-      "将“内”表的候选行加载到哈希表中，然后扫描“外”表以探测匹配项。适用于大型、未排序的数据集。",
-    "vis.guide.mergeJoin": "归并连接 (Merge Join)",
-    "vis.guide.mergeJoinDesc":
-      "连接两个已排序的数据集。如果输入数据已经排序（例如通过索引），则非常高效。",
-    "vis.guide.agg": "聚合 (Hash/Group)",
-    "vis.guide.aggDesc":
-      "GROUP BY 或 DISTINCT 等操作。HashAggregate 使用哈希表，而 GroupAggregate 需要输入已排序。",
+    "vis.kb.append.title": "追加 (Append)",
+    "vis.kb.append.desc": "集合合并 (UNION ALL)。",
+    "vis.kb.append.pros": "分区处理。",
+    "vis.kb.append.cons": "串行处理效率受限。",
+
+    "vis.kb.result.title": "结果 (Result)",
+    "vis.kb.result.desc": "返回常量或计算值。",
+    "vis.kb.result.pros": "极快。",
+    "vis.kb.result.cons": "无。",
+
+    "vis.kb.partIter.title": "分区迭代器",
+    "vis.kb.partIter.desc": "分区表扫描。 (规则ID: Gauss-XN-005)",
+    "vis.kb.partIter.pros": "分区剪枝 (Pruning)。",
+    "vis.kb.partIter.cons":
+      "[高风险] 若 Iterations 很大，说明没有触发分区剪枝，扫描了所有分区。",
+
+    // 新增特定规则
+    "vis.kb.diskSpill.title": "落盘 (Disk Spill)",
+    "vis.kb.diskSpill.desc": "内存不足写磁盘。 (规则ID: Gauss-XN-008)",
+    "vis.kb.diskSpill.pros": "增加 work_mem，优化 SQL 减少中间集。",
+    "vis.kb.diskSpill.cons":
+      "[高风险] 严重性能问题。特征：Batches>1, Disk Usage, external merge。",
+
+    "vis.kb.userFunc.title": "自定义函数",
+    "vis.kb.userFunc.desc": "用户函数执行。 (规则ID: Gauss-XN-011)",
+    "vis.kb.userFunc.pros": "建议在函数前加 Select 或改写减少调用。",
+    "vis.kb.userFunc.cons":
+      "[高风险] 在 Join Filter 中且驱动表行数大（>10万）时，效率极低。",
+
+    "vis.kb.rownum.title": "Rownum 过滤",
+    "vis.kb.rownum.desc": "行号过滤。 (规则ID: Gauss-XN-013)",
+    "vis.kb.rownum.pros": "代码调优。",
+    "vis.kb.rownum.cons":
+      "[高风险] 若 Rows > 10000，索引可能未内推，性能劣化。",
+
+    // Analysis Rules (Dynamic Issues)
+    "vis.rule.001.title": "总体代价 (Cost) 高",
+    "vis.rule.001.desc": "总体代价为 {cost}，超过阈值 1000。",
+    "vis.rule.001.sugg": "分析执行计划并压降 Cost。",
+
+    "vis.rule.002.title": "全表扫描 (Seq Scan)",
+    "vis.rule.002.desc": "对大表 (>10k 行) 进行了全表扫描。",
+    "vis.rule.002.sugg": "检查是否存在可用索引，或是否发生隐式转换。",
+
+    "vis.rule.003.title": "检测到 SubPlan",
+    "vis.rule.003.desc": "计划中包含 SubPlan/SubQuery 算子。",
+    "vis.rule.003.sugg": "建议尝试使用 JOIN 或 CTE 重写查询。",
+
+    "vis.rule.004.title": "笛卡尔积风险",
+    "vis.rule.004.desc": "Nested Loop 没有关联的 Index Cond。",
+    "vis.rule.004.sugg": "严重：请立即检查 Join 条件是否缺失。",
+
+    "vis.rule.005.title": "分区未剪枝",
+    "vis.rule.005.desc":
+      "分区迭代器 (Partition Iterator) 扫描了多个/所有分区。",
+    "vis.rule.005.sugg": "检查过滤条件是否包含分区键。",
+
+    "vis.rule.006.title": "慢 SQL (>3s)",
+    "vis.rule.006.desc": "执行时间为 {time}ms。",
+    "vis.rule.006.sugg": "分析瓶颈（I/O, 锁, CPU）。",
+
+    "vis.rule.007.title": "位图扫描",
+    "vis.rule.007.desc": "使用了 Bitmap Heap/Index Scan。",
+    "vis.rule.007.sugg": "如果 Recheck 过滤了大量行，建议考虑复合索引。",
+
+    "vis.rule.008.title": "落盘 / 内存不足",
+    "vis.rule.008.desc": "操作溢出到磁盘 (Temp File/Disk Spill)。",
+    "vis.rule.008.sugg": "增加 work_mem 或优化 SQL 以减少中间数据集大小。",
+
+    "vis.rule.009.title": "索引扫描带过滤",
+    "vis.rule.009.desc": "索引扫描后紧跟 Filter 操作。",
+    "vis.rule.009.sugg": "索引未覆盖所有谓词。检查是否存在隐式类型转换。",
+
+    "vis.rule.011.title": "Filter 中包含自定义函数",
+    "vis.rule.011.desc": "检测到 Filter 中调用了用户函数。",
+    "vis.rule.011.sugg": "确保函数高效，或避免在大结果集上调用。",
+
+    "vis.rule.012.title": "Update Set 子查询",
+    "vis.rule.012.desc": "Update 语句中检测到多个 SubPlan。",
+    "vis.rule.012.sugg":
+      "建议改写为 Update ... From 或 Merge 语法，避免每行多次执行。",
+
+    "vis.rule.013.title": "Rownum 效率低",
+    "vis.rule.013.desc": "Rownum 过滤大量行 (>10k)。",
+    "vis.rule.013.sugg": "检查索引是否能下推。",
   },
 };
 
