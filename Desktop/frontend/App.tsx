@@ -1,7 +1,6 @@
 import React from "react";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
-import ErrorBoundary from "./components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import ReportManagement from "./pages/ReportManagement";
 import ReportDetail from "./pages/ReportDetail";
@@ -11,18 +10,23 @@ import SqlAudit from "./pages/SqlAudit";
 import AuditLog from "./pages/AuditLog";
 import PlanVisualizer from "./pages/PlanVisualizer";
 import PlanDiff from "./pages/PlanDiff";
+import WDRReportAnalyze from "./pages/WDRReportAnalyze";
+import WDRComparison from "./pages/WDRComparison";
 import { I18nProvider } from "./context/I18nContext";
 import { PlanProvider } from "./context/PlanContext";
+import { WDRProvider } from "./context/WDRContext";
 
 const App: React.FC = () => {
   return (
-    <ErrorBoundary>
-      <I18nProvider>
-        <PlanProvider>
+    <I18nProvider>
+      <PlanProvider>
+        <WDRProvider>
           <HashRouter>
             <Layout>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/wdr-analysis" element={<WDRReportAnalyze />} />
+                <Route path="/wdr-comparison" element={<WDRComparison />} />
                 <Route path="/reports" element={<ReportManagement />} />
                 <Route path="/reports/:id" element={<ReportDetail />} />
                 <Route path="/comparison" element={<ComparisonAnalysis />} />
@@ -34,9 +38,9 @@ const App: React.FC = () => {
               </Routes>
             </Layout>
           </HashRouter>
-        </PlanProvider>
-      </I18nProvider>
-    </ErrorBoundary>
+        </WDRProvider>
+      </PlanProvider>
+    </I18nProvider>
   );
 };
 

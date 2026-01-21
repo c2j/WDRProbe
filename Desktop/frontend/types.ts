@@ -1,9 +1,13 @@
+
 export interface WdrReport {
   id: number;
   instanceName: string;
   generateTime: string;
   period: string;
-  status: "Success" | "Failed" | "Running";
+  status: 'Success' | 'Failed' | 'Running';
+  version?: string;
+  cpu?: string;
+  memory?: string;
 }
 
 export interface WdrEfficiency {
@@ -19,8 +23,9 @@ export interface WdrBufferStat {
 
 export interface WdrObjectStat {
   schema: string;
-  name: string;
-  type: "Table" | "Index";
+  name: string; // Table name or Index name
+  tableName?: string; // For indexes, the parent table
+  type: 'Table' | 'Index';
   seqScan?: number;
   idxScan?: number;
   tupIns?: number;
@@ -28,6 +33,92 @@ export interface WdrObjectStat {
   tupDel?: number;
   liveTup?: number;
   deadTup?: number;
+  // Index specific
+  idxTupRead?: number;
+  idxTupFetch?: number;
+}
+
+export interface WdrWaitEvent {
+  event: string;
+  waitClass: string;
+  waits: number;
+  totalWaitTime: number; // us or ms depending on report
+  avgWaitTime: number;
+  maxWaitTime?: number; // New field
+  pctDBTime: number;
+}
+
+export interface WdrConfigSetting {
+  name: string;
+  value: string;
+  type?: string;
+  category?: string;
+}
+
+export interface WdrHostCpu {
+    cpus: number;
+    cores: number;
+    sockets: number;
+    loadAvgBegin: number;
+    loadAvgEnd: number;
+    user: number;
+    system: number;
+    wio: number;
+    idle: number;
+}
+
+export interface WdrIoProfile {
+    ioType: string;
+    readReqs: number;
+    writeReqs: number;
+    readBytes: number;
+    writeBytes: number;
+}
+
+export interface WdrMemory {
+    component: string;
+    beginVal: string;
+    endVal: string;
+}
+
+// Expanded Top SQL Interface
+export interface WdrTopSqlItem {
+  sqlId: string;
+  uniqueSqlId: number;
+  userName: string;
+  text: string;
+  
+  // Core Timings
+  totalTime: number; // us
+  calls: number;
+  avgTime: number; // us
+  cpuTime: number; // us
+  ioTime: number; // us (Data IO Time)
+  minTime?: number; // us
+  maxTime?: number; // us
+  
+  // Rows & Tuples
+  rows: number;
+  tuplesRead?: number;
+  tuplesAffected?: number;
+  
+  // IO Ops
+  physicalRead?: number;
+  logicalRead?: number;
+  
+  // Sort Stats
+  sortCount?: number;
+  sortTime?: number;
+  sortMemUsed?: number;
+  sortSpillCount?: number;
+  sortSpillSize?: number;
+  
+  // Hash Stats
+  hashCount?: number;
+  hashTime?: number;
+  hashMemUsed?: number;
+  hashSpillCount?: number;
+  hashSpillSize?: number;
 }
 
 export interface WdrReportDetail {
@@ -44,19 +135,13 @@ export interface WdrReportDetail {
     perTxn: number;
     perExec?: number;
   }[];
-  topSql: {
-    sqlId: string;
-    uniqueSqlId: number;
-    userName: string;
-    text: string;
-    totalTime: number; // us
-    calls: number;
-    avgTime: number; // us
-    cpuTime: number; // us
-    ioTime: number; // us
-    rows: number;
-  }[];
+  hostCpu: WdrHostCpu | null;
+  ioProfile: WdrIoProfile[];
+  memoryStats: WdrMemory[];
+  waitEvents: WdrWaitEvent[];
+  topSql: WdrTopSqlItem[];
   objectStats: WdrObjectStat[];
+  configs: WdrConfigSetting[];
 }
 
 export interface ThresholdConfig {
@@ -67,16 +152,26 @@ export interface ThresholdConfig {
   description: string;
   recommendRange: string;
   // Frontend helpers
-  category?: string;
+  category?: string; 
+}
+
+export interface RiskIssue {
+    severity: 'High' | 'Medium' | 'Low';
+    title: string;
+    description: string;
+    category: 'SQL' | 'Object' | 'System';
+    relatedId?: string | number;
+    relatedType?: 'sql' | 'object' | 'system';
+    extra?: Record<string, string | number>;
 }
 
 export interface SqlAuditIssue {
   id: string;
-  severity: "High" | "Medium" | "Low";
+  severity: 'High' | 'Medium' | 'Low';
   type: string;
   target: string;
   time: string;
-  status: "Pending" | "Processing" | "Fixed" | "Whitelisted";
+  status: 'Pending' | 'Processing' | 'Fixed' | 'Whitelisted';
 }
 
 export interface AuditLog {
@@ -85,7 +180,7 @@ export interface AuditLog {
   user: string;
   operationType: string;
   target: string;
-  result: "Success" | "Failed";
+  result: 'Success' | 'Failed';
 }
 
 export interface WdrComparison {
@@ -97,7 +192,7 @@ export interface WdrComparison {
 }
 
 // Comparison Detail Types
-export type ComparisonCategory = "sql" | "wait" | "obj" | "sys";
+export type ComparisonCategory = 'sql' | 'wait' | 'obj' | 'sys';
 
 export interface BaseComparisonMetric {
   id: string;
@@ -160,7 +255,7 @@ export interface SystemMetricComparison extends BaseComparisonMetric {
 
 export interface ComparisonSummary {
   id: string;
-  status: "Improved" | "Degraded" | "Stable";
+  status: 'Improved' | 'Degraded' | 'Stable';
   scoreChange: number; // e.g. -15 (points or percentage)
   conclusion: string;
   keyFindings: string[];
@@ -189,7 +284,7 @@ export interface WdrHotSql {
 // Dashboard Types
 export interface InstanceSummary {
   instanceName: string;
-  status: "Healthy" | "Warning" | "Critical";
+  status: 'Healthy' | 'Warning' | 'Critical';
   healthScore: number;
   lastReportTime: string;
   activeIssues: number;
@@ -202,75 +297,72 @@ export interface DashboardMetrics {
   qps: string;
   healthDistribution: { name: string; value: number }[];
   trendData: { time: string; value: number }[];
-  hotIssues: { title: string; desc: string }[];
+  hotIssues: { title: string; desc: string; }[];
 }
 
 // --- Extended Plan Types for Context ---
 
-export type PlanType =
-  | "Explain Only"
-  | "Explain Analyze"
-  | "Explain Performance";
+export type PlanType = 'Explain Only' | 'Explain Analyze' | 'Explain Performance';
 
-export interface EnhancedNode extends Omit<ExecutionPlanNode, "children"> {
-  uId: string;
-  width: number;
-  totalCost: number;
-  selfCost: number;
-  percentage: number;
-  isCteDef: boolean;
-  isCteScan: boolean;
-  cteName: string;
-  children: EnhancedNode[];
-  nodeId?: string;
-  actualRows?: number;
-  actualTime?: number;
-  loops?: number;
+export interface EnhancedNode extends Omit<ExecutionPlanNode, 'children'> {
+    uId: string;
+    width: number;
+    totalCost: number; 
+    selfCost: number;
+    percentage: number;
+    isCteDef: boolean;
+    isCteScan: boolean;
+    cteName: string;
+    children: EnhancedNode[];
+    nodeId?: string;
+    actualRows?: number;
+    actualTime?: number;
+    loops?: number;
 }
 
 export interface PlanIssue {
-  ruleId: string;
-  title: string;
-  severity: "High" | "Medium" | "Low";
-  type: "Risk" | "Suggestion";
-  description: string;
-  suggestion: string;
-  nodeUIds: string[];
+    ruleId: string;
+    title: string;
+    severity: 'High' | 'Medium' | 'Low';
+    type: 'Risk' | 'Suggestion';
+    description: string;
+    suggestion: string;
+    nodeUIds: string[];
 }
 
 export interface DiffNode {
-  uId: string;
-  id: string; // Sequential ID (n_0, n_1)
-  nodeId?: string; // DB Plan ID (1, 2)
-  operation: string;
-  cost: number;
-  totalCost: number;
-  selfCost: number;
-  rows: number;
-  width: number;
-  actualTime?: number;
-  actualRows?: number;
-  percentage: number;
-  details: string;
-  children: DiffNode[];
+    uId: string;
+    id: string; // Sequential ID (n_0, n_1)
+    nodeId?: string; // DB Plan ID (1, 2)
+    operation: string;
+    cost: number;
+    totalCost: number;
+    selfCost: number;
+    rows: number;
+    width: number;
+    actualTime?: number;
+    actualRows?: number;
+    percentage: number;
+    details: string;
+    children: DiffNode[];
 }
 
 // --- History Types ---
 
 export interface VisHistoryItem {
-  id: string;
-  timestamp: number;
-  name: string;
-  sql: string;
-  planText: string;
+    id: string;
+    timestamp: number;
+    name: string;
+    sql: string;
+    planText: string;
 }
 
 export interface DiffHistoryItem {
-  id: string;
-  timestamp: number;
-  name: string;
-  mode: "unified" | "split";
-  left: string;
-  right: string;
-  unified: string;
+    id: string;
+    timestamp: number;
+    name: string;
+    mode: 'unified' | 'split';
+    left: string;
+    right: string;
+    unified: string;
 }

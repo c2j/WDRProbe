@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ApiService } from '../services/apiService';
 import { SqlAuditIssue } from '../types';
-import { X, CheckCircle, Code, Zap, FileText } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, Code, Zap, FileText } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 
 const SqlAuditPage: React.FC = () => {

@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ApiService } from '../services/apiService';
 import { WdrReportDetail } from '../types';
-import {
-  ArrowLeft, Loader2, Database, Clock, Activity, Code, Layers,
-  FileText, Zap, ChevronRight
+import { 
+  ArrowLeft, Loader2, Database, Clock, Activity, Code, Layers, 
+  Search, BarChart, ChevronDown, FileText, Zap, ChevronRight
 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 
@@ -12,6 +12,7 @@ const EfficiencyGauge: React.FC<{ name: string; value: number; target: number }>
     const isHealthy = value >= target;
     const isWarning = value >= target * 0.9 && value < target;
     const colorClass = isHealthy ? 'text-green-600' : isWarning ? 'text-yellow-600' : 'text-red-600';
+    const bgClass = isHealthy ? 'bg-green-100' : isWarning ? 'bg-yellow-100' : 'bg-red-100';
     
     return (
         <div className="flex flex-col items-center justify-center p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
@@ -35,11 +36,7 @@ const ReportDetail: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-        console.log('Loading report detail for ID:', id);
         ApiService.getWdrReportDetail(Number(id)).then(data => {
-            console.log('Report detail loaded:', data);
-            console.log('Number of SQLs:', data?.topSql.length || 0);
-            console.log('Number of Object Stats:', data?.objectStats.length || 0);
             setDetail(data);
             setLoading(false);
         });
@@ -148,15 +145,6 @@ const ReportDetail: React.FC = () => {
                           </div>
                       </div>
                       <div className="overflow-auto flex-1">
-                        {detail.topSql.length === 0 ? (
-                          <div className="flex h-full items-center justify-center text-gray-500">
-                            <div className="text-center">
-                              <Code size={48} className="mx-auto mb-4 text-gray-300" />
-                              <p>No SQL statistics found</p>
-                              <p className="text-sm mt-2">Either no SQL data was parsed from the report or there was an error during import.</p>
-                            </div>
-                          </div>
-                        ) : (
                         <table className="w-full text-sm text-left whitespace-nowrap">
                             <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10 shadow-sm">
                                 <tr>
@@ -189,7 +177,6 @@ const ReportDetail: React.FC = () => {
                                 ))}
                             </tbody>
                         </table>
-                        )}
                       </div>
                       
                       {/* SQL Detail Overlay/Modal */}
@@ -248,15 +235,6 @@ const ReportDetail: React.FC = () => {
                                 </h3>
                              </div>
                              <div className="overflow-x-auto">
-                                {detail.objectStats.length === 0 ? (
-                                  <div className="flex h-full items-center justify-center text-gray-500 py-8">
-                                    <div className="text-center">
-                                      <Layers size={48} className="mx-auto mb-4 text-gray-300" />
-                                      <p>No object statistics found</p>
-                                      <p className="text-sm mt-2">Object statistics are not yet implemented in the WDR parser.</p>
-                                    </div>
-                                  </div>
-                                ) : (
                                  <table className="w-full text-sm text-left whitespace-nowrap">
                                      <thead className="bg-gray-50 text-gray-600">
                                          <tr>
@@ -296,7 +274,6 @@ const ReportDetail: React.FC = () => {
                                          })}
                                      </tbody>
                                  </table>
-                                )}
                              </div>
                         </div>
                   </div>

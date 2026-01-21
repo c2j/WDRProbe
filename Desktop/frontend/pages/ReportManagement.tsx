@@ -1,22 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { ApiService } from '../services/apiService';
 import { WdrReport } from '../types';
-import { RefreshCw, Trash2, GitCompare, Eye, Search, AlertTriangle, Plus, Check, X } from 'lucide-react';
+import { Upload, RefreshCw, Trash2, GitCompare, Eye, Search, X, FileUp, AlertTriangle } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { useNavigate } from 'react-router-dom';
-import UploadDialog from '../components/UploadDialog';
 
 const ReportManagement: React.FC = () => {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [reports, setReports] = useState<WdrReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-
-  // Selection state
-  const [selectedReportIds, setSelectedReportIds] = useState<Set<number>>(new Set());
-  const [allSelected, setAllSelected] = useState(false);
-
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  
   // Delete Modal State
   const [reportToDelete, setReportToDelete] = useState<number | null>(null);
 
@@ -27,13 +22,17 @@ const ReportManagement: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     const data = await ApiService.getWdrReports();
-    setReports(Array.isArray(data) ? data : []);
+    setReports(data);
     setLoading(false);
   };
 
-  const handleUpload = async (data: { filePath: string; instanceName: string; description: string }) => {
-    await ApiService.importWdrReport(data.filePath, data.instanceName, data.description);
-    loadData();
+  const handleUploadSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setTimeout(() => {
+        setIsUploadModalOpen(false);
+        loadData(); 
+    }, 500);
   };
 
   const handleDelete = async () => {
@@ -44,76 +43,15 @@ const ReportManagement: React.FC = () => {
       }
   };
 
-  // Checkbox handlers
-  const handleSelectAll = () => {
-    if (allSelected) {
-      setSelectedReportIds(new Set());
-    } else {
-      setSelectedReportIds(new Set(reports.map(r => r.id)));
-    }
-    setAllSelected(!allSelected);
-  };
-
-  const handleSelectRow = (id: number) => {
-    const newSelected = new Set(selectedReportIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedReportIds(newSelected);
-    setAllSelected(newSelected.size === reports.length && reports.length > 0);
-  };
-
-  // Check if selected reports can be compared
-  const getCompareValidation = () => {
-    if (selectedReportIds.size !== 2) {
-      return { valid: false, message: '请选择2个报告进行对比' };
-    }
-
-    const selectedReports = reports.filter(r => selectedReportIds.has(r.id));
-    const instanceNames = new Set(selectedReports.map(r => r.instanceName));
-
-    if (instanceNames.size > 1) {
-      return { valid: false, message: '请选择同一数据库实例的报告' };
-    }
-
-    return { valid: true, reports: selectedReports };
-  };
-
-  const handleBatchCompare = async () => {
-    const validation = getCompareValidation();
-    if (!validation.valid || !validation.reports) {
-      alert(validation.message);
-      return;
-    }
-
-    const [report1, report2] = validation.reports;
-    try {
-      const result = await ApiService.createComparison({
-        report1Id: report1.id,
-        report2Id: report2.id,
-        customName: `${report1.instanceName} - ${report1.period} vs ${report2.period}`
-      });
-      navigate(`/comparison?comparisonId=${result.id}`);
-    } catch (error) {
-      console.error('Failed to create comparison:', error);
-      alert('创建对比失败');
-    }
-  };
-
-  const compareValidation = getCompareValidation();
-  const showFloatingBar = selectedReportIds.size > 0;
-
   return (
     <div className="space-y-4">
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-100">
         <div className="flex space-x-3 w-full sm:w-auto mb-3 sm:mb-0">
             <div className="relative">
-                <input
-                    type="text"
-                    placeholder={t('rep.search')}
+                <input 
+                    type="text" 
+                    placeholder={t('rep.search')} 
                     className="pl-9 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
                 <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
@@ -122,65 +60,21 @@ const ReportManagement: React.FC = () => {
                 <RefreshCw size={18} />
             </button>
         </div>
-        <div className="flex space-x-2">
-            <button
-                onClick={() => setShowUploadDialog(true)}
+        <div className="flex space-x-2 w-full sm:w-auto">
+            <button 
+                onClick={() => setIsUploadModalOpen(true)}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
             >
-                <Plus size={16} className="mr-2" />
-                {t('rep.importReport')}
+                <Upload size={16} className="mr-2" /> {t('rep.upload')}
             </button>
         </div>
       </div>
-
-      {/* Floating Action Bar */}
-      {showFloatingBar && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-4 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <span className="text-sm">
-            已选择 <strong>{selectedReportIds.size}</strong> 个报告
-          </span>
-          {compareValidation.valid ? (
-            <button
-              onClick={handleBatchCompare}
-              className="flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-sm font-medium transition-colors"
-            >
-              <GitCompare size={16} className="mr-2" />
-              对比选中报告
-            </button>
-          ) : (
-            <span className="text-xs text-gray-400">{compareValidation.message}</span>
-          )}
-          <button
-            onClick={() => {
-              setSelectedReportIds(new Set());
-              setAllSelected(false);
-            }}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      )}
-
-      <UploadDialog
-        isOpen={showUploadDialog}
-        onClose={() => setShowUploadDialog(false)}
-        onUpload={handleUpload}
-      />
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                    <th className="px-4 py-3 font-medium text-gray-500 w-12">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={handleSelectAll}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                        />
-                    </th>
                     <th className="px-6 py-3 font-medium text-gray-500">{t('rep.id')}</th>
                     <th className="px-6 py-3 font-medium text-gray-500">{t('rep.instance')}</th>
                     <th className="px-6 py-3 font-medium text-gray-500">{t('rep.generated')}</th>
@@ -191,23 +85,10 @@ const ReportManagement: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                    <tr><td colSpan={7} className="p-6 text-center text-gray-500">{t('rep.loading')}</td></tr>
+                    <tr><td colSpan={6} className="p-6 text-center text-gray-500">{t('rep.loading')}</td></tr>
                 ) : (
-                    reports.map(report => {
-                      const isSelected = selectedReportIds.has(report.id);
-                      return (
-                        <tr
-                          key={report.id}
-                          className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
-                        >
-                            <td className="px-4 py-3">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => handleSelectRow(report.id)}
-                                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                />
-                            </td>
+                    reports.map(report => (
+                        <tr key={report.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-3 text-gray-900 font-medium">#{report.id}</td>
                             <td className="px-6 py-3 text-gray-600">{report.instanceName}</td>
                             <td className="px-6 py-3 text-gray-600">{report.generateTime}</td>
@@ -221,34 +102,30 @@ const ReportManagement: React.FC = () => {
                                 </span>
                             </td>
                             <td className="px-6 py-3 text-right space-x-2">
-                                <button
+                                <button 
                                     onClick={() => navigate(`/reports/${report.id}`)}
-                                    className="text-gray-400 hover:text-blue-600 transition-colors"
-                                    title="查看"
+                                    className="text-gray-400 hover:text-blue-600 transition-colors" 
+                                    title="View"
                                 >
                                     <Eye size={18} />
                                 </button>
-                                <button
-                                    onClick={() => {
-                                      setSelectedReportIds(new Set([report.id]));
-                                      setAllSelected(false);
-                                    }}
-                                    className="text-gray-400 hover:text-green-600 transition-colors"
-                                    title="选择此报告进行对比"
+                                <button 
+                                    onClick={() => navigate(`/comparison?sourceId=${report.id}`)}
+                                    className="text-gray-400 hover:text-blue-600 transition-colors" 
+                                    title="Compare"
                                 >
-                                    <Check size={18} />
+                                    <GitCompare size={18} />
                                 </button>
-                                <button
+                                <button 
                                     onClick={() => setReportToDelete(report.id)}
-                                    className="text-gray-400 hover:text-red-600 transition-colors"
-                                    title="删除"
+                                    className="text-gray-400 hover:text-red-600 transition-colors" 
+                                    title="Delete"
                                 >
                                     <Trash2 size={18} />
                                 </button>
                             </td>
                         </tr>
-                      );
-                    })
+                    ))
                 )}
             </tbody>
         </table>
@@ -265,7 +142,74 @@ const ReportManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Upload Modal - Removed, now using dialog directly */}
+      {/* Upload Modal */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-semibold text-gray-800 flex items-center">
+                        <FileUp size={20} className="mr-2 text-blue-600" />
+                        {t('rep.uploadTitle')}
+                    </h3>
+                    <button 
+                        onClick={() => setIsUploadModalOpen(false)} 
+                        className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-1 hover:bg-gray-200"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                
+                <form onSubmit={handleUploadSubmit}>
+                    <div className="p-6 space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('rep.instanceName')}</label>
+                            <input 
+                                type="text" 
+                                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" 
+                                placeholder="e.g. prod-db-node-01" 
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('rep.desc')}</label>
+                            <textarea 
+                                className="w-full border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow resize-none" 
+                                rows={3}
+                                placeholder="Brief description of the report context..." 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('rep.file')}</label>
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center text-gray-500 hover:bg-blue-50 hover:border-blue-300 transition-all cursor-pointer group relative">
+                                <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".html,.wdr" />
+                                <div className="p-3 bg-gray-100 rounded-full mb-3 group-hover:bg-blue-100 transition-colors">
+                                    <Upload size={24} className="text-gray-500 group-hover:text-blue-600" />
+                                </div>
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700">{t('rep.clickUpload')}</span>
+                                <span className="text-xs text-gray-400 mt-1">{t('rep.fileHint')}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3 border-t border-gray-100">
+                        <button 
+                            type="button"
+                            onClick={() => setIsUploadModalOpen(false)}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        >
+                            {t('rep.cancel')}
+                        </button>
+                        <button 
+                            type="submit"
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm transition-colors"
+                        >
+                            {t('rep.submit')}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {reportToDelete && (
@@ -280,13 +224,13 @@ const ReportManagement: React.FC = () => {
                           {t('rep.deleteConfirm', { id: reportToDelete })}
                       </p>
                       <div className="flex justify-end space-x-3">
-                          <button
+                          <button 
                               onClick={() => setReportToDelete(null)}
                               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                           >
                               {t('rep.cancel')}
                           </button>
-                          <button
+                          <button 
                               onClick={handleDelete}
                               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
                           >
