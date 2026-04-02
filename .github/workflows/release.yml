@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            name: macOS-arm64
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            name: macOS-x86_64
+          # ubuntu-20.04 provides glibc 2.31 (Kylin OS compatible) and webkit2gtk-4.0 (Tauri v1)
+          - platform: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+            name: Linux-x86_64
+          - platform: ubuntu-20.04
+            target: aarch64-unknown-linux-gnu
+            name: Linux-arm64
+            cross: true
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: Windows-x86_64
+          - platform: windows-latest
+            target: aarch64-pc-windows-msvc
+            name: Windows-arm64
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies (x86_64)
+        if: matrix.platform == 'ubuntu-20.04' && !matrix.cross
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            libgtk-3-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # Cross-compile for arm64 using focal arm64 ports (glibc 2.31 arm64 libraries)
+      - name: Setup cross-compilation (Linux arm64)
+        if: matrix.cross
+        run: |
+          sudo dpkg --add-architecture arm64
+
+          sudo sed -i '/^deb /{ /\[arch=/!s/^deb /deb [arch=amd64] / }' /etc/apt/sources.list
+          sudo sed -i '/^deb-src /{ /\[arch=/!s/^deb-src /deb-src [arch=amd64] / }' /etc/apt/sources.list
+
+          cat <<EOF | sudo tee /etc/apt/sources.list.d/arm64.list
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse
+          EOF
+
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu
+
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev:arm64 \
+            libgtk-3-dev:arm64 \
+            libappindicator3-dev:arm64 \
+            librsvg2-dev:arm64 \
+            libssl-dev:arm64 \
+            patchelf
+
+          mkdir -p ~/.cargo
+          cat <<EOF >> ~/.cargo/config.toml
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './Desktop/src-tauri -> target'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: Desktop/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: Desktop
+
+      - name: Build and release Tauri application
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: Desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'WDRProbe Desktop ${{ github.ref_name }}'
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }}
