@@ -1,6 +1,6 @@
 [package]
 name = "wdrprobe-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "WDRProbe Desktop - Database Query Performance Analysis Tool"
 authors = ["C2J"]
 edition = "2021"
