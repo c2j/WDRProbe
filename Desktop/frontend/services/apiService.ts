@@ -15,7 +15,17 @@ import {
   BaseComparisonMetric,
   ComparisonSummary,
   InstanceSummary,
-  DashboardMetrics
+  DashboardMetrics,
+  DiagnosticReportResponse,
+  FindingInfo,
+  DiagnosticStats,
+  HeatmapData,
+  HeatmapNode,
+  HeatmapSummary,
+  WaterfallData,
+  WaterfallNode,
+  WaterfallBottlenecks,
+  RuleInfo
 } from '../types';
 
 // Mock Data
@@ -402,5 +412,32 @@ export const ApiService = {
             { title: 'Lock Wait Ratio', desc: 'Value: 32%' },
         ]
     };
-  }
+  },
+
+  // === Phase 1: ogexplain-analyzer Integration ===
+
+  parseExplainWithOgexplain: async (planText: string): Promise<ExecutionPlanNode> => {
+    if (isTauri()) return invoke('parse_explain_with_ogexplain', { planText });
+    throw new Error('parseExplainWithOgexplain requires Tauri runtime');
+  },
+
+  diagnoseExplainPlan: async (planText: string): Promise<DiagnosticReportResponse> => {
+    if (isTauri()) return invoke('diagnose_explain_plan', { planText });
+    throw new Error('diagnoseExplainPlan requires Tauri runtime');
+  },
+
+  getExplainHeatmap: async (planText: string): Promise<HeatmapData | null> => {
+    if (isTauri()) return invoke('get_explain_heatmap', { planText });
+    throw new Error('getExplainHeatmap requires Tauri runtime');
+  },
+
+  getExplainWaterfall: async (planText: string): Promise<WaterfallData | null> => {
+    if (isTauri()) return invoke('get_explain_waterfall', { planText });
+    throw new Error('getExplainWaterfall requires Tauri runtime');
+  },
+
+  listDiagnosticRules: async (): Promise<RuleInfo[]> => {
+    if (isTauri()) return invoke('list_diagnostic_rules');
+    throw new Error('listDiagnosticRules requires Tauri runtime');
+  },
 };

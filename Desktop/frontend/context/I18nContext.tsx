@@ -424,6 +424,25 @@ const translations: Record<Language, Record<string, string>> = {
     'diff.analysis.title': 'Risk Analysis',
     'diff.analysis.newRisk': 'New Risk: {risk}',
     'diff.analysis.resolved': 'Resolved: {risk}',
+
+    // Diagnostics (ogexplain-analyzer)
+    'vis.diagnostic.title': 'Execution Plan Diagnostics',
+    'vis.diagnostic.findings': 'Findings',
+    'vis.diagnostic.noFindings': 'No issues detected',
+    'vis.diagnostic.critical': 'Critical',
+    'vis.diagnostic.warning': 'Warning',
+    'vis.diagnostic.info': 'Info',
+    'vis.diagnostic.ruleId': 'Rule',
+    'vis.diagnostic.category': 'Category',
+    'vis.diagnostic.suggestion': 'Suggestion',
+    'vis.diagnostic.heatmap': 'Cost-Actual Deviation Heatmap',
+    'vis.diagnostic.heatmapNoData': 'EXPLAIN ANALYZE data required for heatmap',
+    'vis.diagnostic.waterfall': 'Resource Waterfall',
+    'vis.diagnostic.waterfallNoData': 'EXPLAIN ANALYZE data required for waterfall',
+    'vis.diagnostic.rulesCatalog': 'Diagnostic Rules Catalog',
+    'vis.diagnostic.rulesCount': '{{count}} rules',
+    'vis.diagnostic.parseWithOgexplain': 'Parse with ogexplain',
+    'vis.diagnostic.diagnose': 'Run Diagnostics',
   },
   zh: {
     // Menu
@@ -838,6 +857,25 @@ const translations: Record<Language, Record<string, string>> = {
     'diff.analysis.title': '风险分析',
     'diff.analysis.newRisk': '新增风险: {risk}',
     'diff.analysis.resolved': '已解决: {risk}',
+
+    // Diagnostics (ogexplain-analyzer)
+    'vis.diagnostic.title': '执行计划诊断',
+    'vis.diagnostic.findings': '诊断发现',
+    'vis.diagnostic.noFindings': '未检测到问题',
+    'vis.diagnostic.critical': '严重',
+    'vis.diagnostic.warning': '警告',
+    'vis.diagnostic.info': '信息',
+    'vis.diagnostic.ruleId': '规则',
+    'vis.diagnostic.category': '类别',
+    'vis.diagnostic.suggestion': '建议',
+    'vis.diagnostic.heatmap': '成本-实际偏差热力图',
+    'vis.diagnostic.heatmapNoData': '需要 EXPLAIN ANALYZE 数据生成热力图',
+    'vis.diagnostic.waterfall': '资源瀑布图',
+    'vis.diagnostic.waterfallNoData': '需要 EXPLAIN ANALYZE 数据生成瀑布图',
+    'vis.diagnostic.rulesCatalog': '诊断规则目录',
+    'vis.diagnostic.rulesCount': '{{count}} 条规则',
+    'vis.diagnostic.parseWithOgexplain': '使用 ogexplain 解析',
+    'vis.diagnostic.diagnose': '运行诊断',
   }
 };
 

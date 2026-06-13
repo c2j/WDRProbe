@@ -1,6 +1,7 @@
 // WDRProbe Desktop Library
 // Core library for database operations, models, and utilities
 
+pub mod adapters;
 pub mod commands;
 pub mod database;
 pub mod models;

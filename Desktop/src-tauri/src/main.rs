@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod adapters;
 mod commands;
 mod database;
 mod models;
@@ -75,6 +76,11 @@ fn main() {
             execution_plan::get_saved_plans,
             execution_plan::delete_execution_plan,
             execution_plan::generate_optimization_sql,
+            execution_plan::parse_explain_with_ogexplain,
+            execution_plan::diagnose_explain_plan,
+            execution_plan::get_explain_heatmap,
+            execution_plan::get_explain_waterfall,
+            execution_plan::list_diagnostic_rules,
             // Comparison commands
             comparison::get_comparisons,
             comparison::get_comparison_summary,

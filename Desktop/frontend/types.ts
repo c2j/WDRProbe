@@ -366,3 +366,73 @@ export interface DiffHistoryItem {
     right: string;
     unified: string;
 }
+
+// === ogexplain-analyzer Integration Types (Phase 1) ===
+
+export interface DiagnosticReportResponse {
+  plan: ExecutionPlanNode;
+  findings: FindingInfo[];
+  stats: DiagnosticStats;
+}
+
+export interface FindingInfo {
+  ruleId: string;
+  severity: 'critical' | 'warning' | 'info';
+  category: string;
+  title: string;
+  detail: string;
+  nodeLine?: number;
+  nodeType?: string;
+  suggestion?: string;
+}
+
+export interface DiagnosticStats {
+  totalFindings: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+}
+
+export interface HeatmapData {
+  nodes: HeatmapNode[];
+  summary: HeatmapSummary;
+}
+
+export interface HeatmapNode {
+  operation: string;
+  estimatedCost: number;
+  actualCost: number;
+  qError: number;
+  severity: string;
+}
+
+export interface HeatmapSummary {
+  maxQerror: number;
+  avgQerror: number;
+  nodesWithDeviation: number;
+}
+
+export interface WaterfallData {
+  nodes: WaterfallNode[];
+  bottlenecks: WaterfallBottlenecks;
+}
+
+export interface WaterfallNode {
+  operation: string;
+  cpuTime: number;
+  memoryKb: number;
+  percentage: number;
+}
+
+export interface WaterfallBottlenecks {
+  cpuBottlenecks: string[];
+  memoryBottlenecks: string[];
+}
+
+export interface RuleInfo {
+  ruleId: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: string;
+}
