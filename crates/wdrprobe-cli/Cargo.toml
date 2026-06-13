@@ -1,0 +1,16 @@
+[package]
+name = "wdrprobe-cli"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "WDRProbe CLI — Command-line WDR report analysis and SQL diagnostics"
+
+[dependencies]
+wdrprobe-core = { path = "../wdrprobe-core" }
+ogexplain-core = { path = "../../../ogexplain-analyzer/crates/ogexplain-core" }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+rusqlite = { version = "0.30", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
