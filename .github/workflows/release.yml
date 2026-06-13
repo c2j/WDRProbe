@@ -129,3 +129,42 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
+
+      # ── Create portable zip archives (raw binary, versioned) ──────────
+
+      - name: Create portable zip (Linux)
+        if: startsWith(matrix.name, 'Linux')
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          TARGET_DIR="Desktop/src-tauri/target/${{ matrix.target }}/release"
+          BINARY="wdrprobe-desktop"
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ]; then
+            ARCH="x86_64"
+          else
+            ARCH="arm64"
+          fi
+          ZIP_NAME="WDRProbe-Desktop-${VERSION}-linux-${ARCH}.zip"
+          cd "${TARGET_DIR}"
+          zip "${ZIP_NAME}" "${BINARY}"
+          echo "PORTABLE_ZIP=$(pwd)/${ZIP_NAME}" >> $GITHUB_ENV
+
+      - name: Create portable zip (Windows x86_64)
+        if: startsWith(matrix.name, 'Windows') && matrix.target == 'x86_64-pc-windows-msvc'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.ref_name }}" -replace '^v', ''
+          $TARGET_DIR = "Desktop/src-tauri/target/${{ matrix.target }}/release"
+          $ZIP_NAME = "WDRProbe-Desktop-${VERSION}-windows-x86_64.zip"
+          Set-Location $TARGET_DIR
+          Compress-Archive -Path "wdrprobe-desktop.exe" -DestinationPath $ZIP_NAME
+          "PORTABLE_ZIP=$(Get-Location)\${ZIP_NAME}" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload portable zip to release
+        if: env.PORTABLE_ZIP != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release upload "${{ github.ref_name }}" "${{ env.PORTABLE_ZIP }}" --clobber
