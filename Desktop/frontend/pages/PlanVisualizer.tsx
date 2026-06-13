@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { EnhancedNode, PlanIssue, PlanType, VisHistoryItem } from '../types';
+import { EnhancedNode, PlanIssue, PlanType, VisHistoryItem, DiagnosticReportResponse, FindingInfo, DiagnosticStats } from '../types';
 import { 
   Play, AlertCircle, Database, Zap, FileCode, MousePointer2, 
   GitBranch, AlignLeft, ChevronDown, ChevronRight, ChevronUp,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { usePlanContext } from '../context/PlanContext';
+import { ApiService } from '../services/apiService';
 
 // --- Types ---
 // PanelType is local UI state
@@ -32,6 +33,7 @@ interface NodeViewProps {
     expandedIds?: Set<string>;
     onToggle?: (uId: string) => void;
     planType?: PlanType;
+    diagNodeSeverityMap?: Record<string, string>;
 }
 
 // --- Knowledge Base Types & Data ---
@@ -393,7 +395,7 @@ const KnowledgePanel: React.FC<{ isOpen: boolean; onClose: () => void; activeKey
 
 const TreeNode: React.FC<NodeViewProps> = ({ 
     node, maxCost, selectedNode, onSelect, hoveredCte, onHoverCte, highlightedTable, highlightedIssueNodes,
-    expandedIds, onToggle, planType
+    expandedIds, onToggle, planType, diagNodeSeverityMap
 }) => {
     const isSelected = selectedNode?.uId === node.uId;
     const isHighCost = node.percentage > 20;
@@ -443,6 +445,9 @@ const TreeNode: React.FC<NodeViewProps> = ({
                     <div className="flex items-center">
                          {node.nodeId && <span className="text-[9px] text-gray-400 mr-1.5 font-mono">#{node.nodeId}</span>}
                          <span className="font-bold text-xs text-gray-700 truncate max-w-[160px]" title={node.operation}>{node.operation}</span>
+                         {diagNodeSeverityMap?.[node.operation.toLowerCase()] === 'critical' && <AlertCircle size={10} className="ml-1 text-red-500 shrink-0" />}
+                         {diagNodeSeverityMap?.[node.operation.toLowerCase()] === 'warning' && <AlertTriangle size={10} className="ml-1 text-amber-500 shrink-0" />}
+                         {diagNodeSeverityMap?.[node.operation.toLowerCase()] === 'info' && <Info size={10} className="ml-1 text-blue-500 shrink-0" />}
                     </div>
                     {isHighCost && <AlertCircle size={12} className="text-red-500 ml-1" />}
                     {hasDiskSpill && <span title="Disk Spill" className="ml-1"><HardDrive size={12} className="text-purple-600" /></span>}
@@ -504,17 +509,18 @@ const TreeNode: React.FC<NodeViewProps> = ({
                            {/* Direct single line connection */}
                            <div className="w-px h-6 bg-gray-300"></div>
                            <TreeNode 
-                               node={node.children[0]} 
-                               maxCost={maxCost} 
-                               selectedNode={selectedNode} 
-                               onSelect={onSelect}
-                               hoveredCte={hoveredCte}
-                               onHoverCte={onHoverCte}
-                               highlightedTable={highlightedTable}
-                               highlightedIssueNodes={highlightedIssueNodes}
-                               expandedIds={expandedIds}
-                               onToggle={onToggle}
-                               planType={planType}
+                                node={node.children[0]} 
+                                maxCost={maxCost} 
+                                selectedNode={selectedNode} 
+                                onSelect={onSelect}
+                                hoveredCte={hoveredCte}
+                                onHoverCte={onHoverCte}
+                                highlightedTable={highlightedTable}
+                                highlightedIssueNodes={highlightedIssueNodes}
+                                expandedIds={expandedIds}
+                                onToggle={onToggle}
+                                planType={planType}
+                                diagNodeSeverityMap={diagNodeSeverityMap}
                            />
                         </>
                     ) : (
@@ -537,19 +543,20 @@ const TreeNode: React.FC<NodeViewProps> = ({
                                              </div>
                                              
                                              <div className="px-2">
-                                                 <TreeNode 
-                                                     node={child} 
-                                                     maxCost={maxCost} 
-                                                     selectedNode={selectedNode} 
-                                                     onSelect={onSelect}
-                                                     hoveredCte={hoveredCte}
-                                                     onHoverCte={onHoverCte}
-                                                     highlightedTable={highlightedTable}
-                                                     highlightedIssueNodes={highlightedIssueNodes}
-                                                     expandedIds={expandedIds}
-                                                     onToggle={onToggle}
-                                                     planType={planType}
-                                                 />
+                                              <TreeNode 
+                                                      node={child} 
+                                                      maxCost={maxCost} 
+                                                      selectedNode={selectedNode} 
+                                                      onSelect={onSelect}
+                                                      hoveredCte={hoveredCte}
+                                                      onHoverCte={onHoverCte}
+                                                      highlightedTable={highlightedTable}
+                                                      highlightedIssueNodes={highlightedIssueNodes}
+                                                      expandedIds={expandedIds}
+                                                      onToggle={onToggle}
+                                                      planType={planType}
+                                                      diagNodeSeverityMap={diagNodeSeverityMap}
+                                                  />
                                              </div>
                                          </div>
                                     );
@@ -569,7 +576,7 @@ const TreeNode: React.FC<NodeViewProps> = ({
 };
 
 const CostFlowView: React.FC<NodeViewProps> = ({ 
-    node, maxCost, selectedNode, onSelect, highlightedTable, highlightedIssueNodes, planType
+    node, maxCost, selectedNode, onSelect, highlightedTable, highlightedIssueNodes, planType, diagNodeSeverityMap
 }) => {
     const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
@@ -647,6 +654,9 @@ const CostFlowView: React.FC<NodeViewProps> = ({
                                         title={item.operation}
                                     >
                                         {item.operation}
+                                        {diagNodeSeverityMap?.[item.operation.toLowerCase()] === 'critical' && <AlertCircle size={10} className="ml-1 text-red-500 shrink-0" />}
+                                        {diagNodeSeverityMap?.[item.operation.toLowerCase()] === 'warning' && <AlertTriangle size={10} className="ml-1 text-amber-500 shrink-0" />}
+                                        {diagNodeSeverityMap?.[item.operation.toLowerCase()] === 'info' && <Info size={10} className="ml-1 text-blue-500 shrink-0" />}
                                     </span>
                                     {item.nodeId && <span className="ml-2 text-[10px] text-gray-400 font-mono shrink-0">#{item.nodeId}</span>}
                                 </div>
@@ -722,6 +732,14 @@ const PlanVisualizer: React.FC = () => {
   const [maximizedPanel, setMaximizedPanel] = useState<PanelType | null>(null);
   // Removed unused setter setShowBottomPanel
   const [showBottomPanel] = useState(true);
+
+  // Diagnostic state (ogexplain-analyzer)
+  const [diagFindings, setDiagFindings] = useState<FindingInfo[]>([]);
+  const [diagStats, setDiagStats] = useState<DiagnosticStats | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagError, setDiagError] = useState<string | null>(null);
+  const [diagFilter, setDiagFilter] = useState<'all' | 'critical' | 'warning'>('all');
+  const [showDiagPanel, setShowDiagPanel] = useState(false);
 
   // Initialize tree expansion state when plan loads
   useEffect(() => {
@@ -894,6 +912,30 @@ const PlanVisualizer: React.FC = () => {
       if (planIssues.some(i => i.severity === 'Medium')) return 'Medium';
       return 'Low';
   }, [planIssues]);
+
+  const filteredDiagFindings = useMemo(() => {
+    if (diagFilter === 'all') return diagFindings;
+    return diagFindings.filter(f => {
+      if (diagFilter === 'critical') return f.severity === 'critical';
+      if (diagFilter === 'warning') return f.severity === 'critical' || f.severity === 'warning';
+      return true;
+    });
+  }, [diagFindings, diagFilter]);
+
+  const diagNodeSeverityMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    filteredDiagFindings.forEach(f => {
+      if (f.nodeType) {
+        const key = f.nodeType.toLowerCase();
+        if (!map[key] || 
+            (f.severity === 'critical' && map[key] !== 'critical') ||
+            (f.severity === 'warning' && map[key] === 'info')) {
+          map[key] = f.severity;
+        }
+      }
+    });
+    return map;
+  }, [filteredDiagFindings]);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
@@ -1082,6 +1124,10 @@ const PlanVisualizer: React.FC = () => {
       setLoading(true);
       setPlanIssues([]);
       setHighlightedIssueNodes([]);
+      setDiagFindings([]);
+      setDiagStats(null);
+      setShowDiagPanel(false);
+      setDiagError(null);
       setTimeout(() => {
           const { root, type } = parseGaussDBPlan(rawPlanText);
           setPlan(root);
@@ -1094,6 +1140,22 @@ const PlanVisualizer: React.FC = () => {
           setLoading(false);
           setVisiblePanels({ ...visiblePanels, text: false, sql: false });
       }, 500);
+  };
+
+  const handleRunDiagnostics = async () => {
+    if (!rawPlanText.trim()) return;
+    setDiagLoading(true);
+    setDiagError(null);
+    try {
+      const result = await ApiService.diagnoseExplainPlan(rawPlanText);
+      setDiagFindings(result.findings);
+      setDiagStats(result.stats);
+      setShowDiagPanel(true);
+    } catch (err: any) {
+      setDiagError(err?.message || String(err));
+    } finally {
+      setDiagLoading(false);
+    }
   };
 
   const togglePanel = (type: PanelType) => {
@@ -1212,6 +1274,19 @@ const PlanVisualizer: React.FC = () => {
                                 </div>
                             )}
                             <button onClick={() => setShowKnowledgeBase(!showKnowledgeBase)} className={`flex items-center px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${showKnowledgeBase ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-600'}`}><BookOpen size={12} className="mr-1.5"/> Knowledge</button>
+                            <button 
+                                onClick={handleRunDiagnostics}
+                                disabled={diagLoading || !rawPlanText.trim()}
+                                className={`flex items-center px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                                    diagLoading ? 'bg-gray-100 text-gray-400 cursor-wait' : 
+                                    showDiagPanel ? 'bg-emerald-100 text-emerald-700' : 
+                                    'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                }`}
+                                title={t('vis.diagnostic.diagnose')}
+                            >
+                                {diagLoading ? <RefreshCw size={12} className="mr-1 animate-spin"/> : <Scan size={12} className="mr-1.5"/>}
+                                {diagLoading ? '...' : t('vis.diagnostic.diagnose')}
+                            </button>
                         </div>
                         <div className="flex items-center space-x-2">
                              {planIssues.length > 0 && (
@@ -1263,6 +1338,7 @@ const PlanVisualizer: React.FC = () => {
                                             expandedIds={treeExpandedIds}
                                             onToggle={handleToggleTree}
                                             planType={planType}
+                                            diagNodeSeverityMap={diagNodeSeverityMap}
                                         />
                                     </div>
                                 ) : (
@@ -1276,7 +1352,8 @@ const PlanVisualizer: React.FC = () => {
                                             onHoverCte={setHoveredCte}
                                             highlightedTable={highlightedTable} 
                                             highlightedIssueNodes={highlightedIssueNodes}
-                                            planType={planType} 
+                                            planType={planType}
+                                            diagNodeSeverityMap={diagNodeSeverityMap}
                                         />
                                     </div>
                                 )
@@ -1330,10 +1407,10 @@ const PlanVisualizer: React.FC = () => {
             />
         </div>
 
-        {/* Bottom Panel: Optimization Suggestions */}
+        {/* Bottom Panel: Optimization Suggestions + Diagnostics */}
         {showBottomPanel && !isFullscreen && (
-            <div ref={issuesPanelRef} className="h-48 flex gap-4 min-h-[150px] shrink-0 animate-in slide-in-from-bottom-5 fade-in duration-300">
-                <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+            <div ref={issuesPanelRef} className={`${showDiagPanel ? 'h-64' : 'h-48'} flex gap-4 min-h-[150px] shrink-0 animate-in slide-in-from-bottom-5 fade-in duration-300`}>
+                <div className={`${showDiagPanel ? 'w-1/2' : 'w-full'} bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col`}>
                     <div className="bg-orange-50 px-4 py-2 border-b border-orange-100 shrink-0 flex justify-between">
                         <span className="text-xs font-semibold text-orange-700 flex items-center"><Zap size={14} className="mr-2"/> {t('vis.opt.suggestions')} & Risks</span>
                         {planIssues.length > 0 && <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 rounded-full">{planIssues.length} Issues Found</span>}
@@ -1378,6 +1455,95 @@ const PlanVisualizer: React.FC = () => {
                         )}
                     </div>
                 </div>
+
+                {/* Diagnostic Findings Panel (ogexplain-analyzer) */}
+                {showDiagPanel && (
+                    <div className="w-1/2 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                        <div className="bg-emerald-50 px-4 py-2 border-b border-emerald-100 shrink-0 flex justify-between items-center">
+                            <span className="text-xs font-semibold text-emerald-700 flex items-center">
+                                <Scan size={14} className="mr-2"/> {t('vis.diagnostic.title')}
+                            </span>
+                            <div className="flex items-center space-x-2">
+                                {diagStats && (
+                                    <div className="flex items-center space-x-1.5">
+                                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{diagStats.criticalCount} {t('vis.diagnostic.critical')}</span>
+                                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{diagStats.warningCount} {t('vis.diagnostic.warning')}</span>
+                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{diagStats.infoCount} {t('vis.diagnostic.info')}</span>
+                                    </div>
+                                )}
+                                <button onClick={() => setShowDiagPanel(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        </div>
+                        {diagFindings.length > 0 && (
+                            <div className="px-4 py-1.5 border-b border-gray-100 bg-white flex items-center space-x-2">
+                                <span className="text-[10px] text-gray-500 font-medium">{t('vis.diagnostic.category')}:</span>
+                                {(['all', 'critical', 'warning'] as const).map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setDiagFilter(f)}
+                                        className={`text-[10px] px-2 py-0.5 rounded font-medium ${diagFilter === f ? 'bg-emerald-100 text-emerald-700' : 'text-gray-500 hover:bg-gray-100'}`}
+                                    >
+                                        {f === 'all' ? 'All' : f === 'critical' ? t('vis.diagnostic.critical') : 'Warnings+'}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex-1 overflow-y-auto p-3">
+                            {diagLoading ? (
+                                <div className="flex items-center justify-center h-full text-gray-400">
+                                    <RefreshCw size={20} className="animate-spin mr-2"/>
+                                    <span className="text-sm">{t('vis.diagnostic.diagnose')}...</span>
+                                </div>
+                            ) : diagError ? (
+                                <div className="flex items-center justify-center h-full text-red-500">
+                                    <AlertCircle size={16} className="mr-2"/>
+                                    <span className="text-sm">{diagError}</span>
+                                </div>
+                            ) : filteredDiagFindings.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                    <CheckCircle size={24} className="text-emerald-400 mb-2" />
+                                    <span className="text-sm">{t('vis.diagnostic.noFindings')}</span>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {filteredDiagFindings.map((f, idx) => {
+                                        const SevIcon = f.severity === 'critical' ? AlertCircle : f.severity === 'warning' ? AlertTriangle : Info;
+                                        const sevColor = f.severity === 'critical' ? 'text-red-600' : f.severity === 'warning' ? 'text-amber-600' : 'text-blue-600';
+                                        const sevBg = f.severity === 'critical' ? 'bg-red-50 border-red-100 hover:bg-red-100' : f.severity === 'warning' ? 'bg-amber-50 border-amber-100 hover:bg-amber-100' : 'bg-blue-50 border-blue-100 hover:bg-blue-100';
+                                        const sevBadge = f.severity === 'critical' ? 'bg-red-500' : f.severity === 'warning' ? 'bg-amber-400' : 'bg-blue-500';
+                                        
+                                        return (
+                                            <div key={idx} className={`flex items-start p-2.5 rounded-md border ${sevBg}`}>
+                                                <SevIcon size={14} className={`mr-2 mt-0.5 flex-shrink-0 ${sevColor}`}/>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                                        <span className="text-xs font-bold text-gray-800">{f.title}</span>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded text-white font-medium ${sevBadge}`}>{f.severity}</span>
+                                                        <span className="text-[10px] text-gray-400 font-mono">{f.ruleId}</span>
+                                                        {f.category && (
+                                                            <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">{f.category}</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[11px] text-gray-600 mt-0.5">{f.detail}</p>
+                                                    {f.suggestion && (
+                                                        <p className="text-[11px] text-emerald-600 mt-0.5 font-medium flex items-center">
+                                                            <Info size={10} className="mr-1"/> {t('vis.diagnostic.suggestion')}: {f.suggestion}
+                                                        </p>
+                                                    )}
+                                                    {f.nodeType && (
+                                                        <span className="text-[10px] text-gray-400 mt-0.5 inline-block">{t('vis.diagnostic.findings')}: {f.nodeType}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         )}
     </div>

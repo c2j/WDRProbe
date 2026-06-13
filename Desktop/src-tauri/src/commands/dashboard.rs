@@ -1,8 +1,8 @@
 // Dashboard commands
 // IPC commands for dashboard data retrieval
 
-use crate::database::{DatabaseOperations, DatabasePool};
-use crate::models::{DashboardMetrics, InstanceSummary};
+use wdrprobe_core::database::{DatabaseOperations, DatabasePool};
+use wdrprobe_core::models::{DashboardMetrics, InstanceSummary};
 
 /// Get instance summaries for dashboard
 #[tauri::command]

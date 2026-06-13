@@ -1,11 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod adapters;
 mod commands;
-mod database;
-mod models;
-mod parsers;
-mod utils;
 
 use commands::audit;
 use commands::comparison;
@@ -14,8 +11,8 @@ use commands::execution_plan;
 use commands::export;
 use commands::reports;
 use commands::threshold;
-use database::{init_database, initialize_schema, DatabasePool};
-use database::schema::{initialize_default_thresholds, initialize_sample_audit_issues};
+use wdrprobe_core::database::{init_database, initialize_schema};
+use wdrprobe_core::database::schema::{initialize_default_thresholds, initialize_sample_audit_issues};
 use tauri::Manager;
 
 #[cfg_attr(
@@ -75,6 +72,11 @@ fn main() {
             execution_plan::get_saved_plans,
             execution_plan::delete_execution_plan,
             execution_plan::generate_optimization_sql,
+            execution_plan::parse_explain_with_ogexplain,
+            execution_plan::diagnose_explain_plan,
+            execution_plan::get_explain_heatmap,
+            execution_plan::get_explain_waterfall,
+            execution_plan::list_diagnostic_rules,
             // Comparison commands
             comparison::get_comparisons,
             comparison::get_comparison_summary,
@@ -97,6 +99,8 @@ fn main() {
             audit::get_sql_audit_issues,
             audit::update_audit_issue_status,
             audit::bulk_update_audit_issues,
+            audit::rewrite_sql,
+            audit::list_rewrite_rules,
             // Export/Import commands
             export::export_wdr_report,
             export::export_comparison,

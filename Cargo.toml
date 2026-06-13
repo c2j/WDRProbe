@@ -1,11 +1,8 @@
-[package]
-name = "wdr_parser_test"
-version = "0.1.0"
-edition = "2021"
-
-[[bin]]
-name = "wdr_parser_test"
-path = "wdr_parser_main.rs"
-
-[dependencies]
-scraper = "0.18"
+[workspace]
+members = [
+    "crates/wdrprobe-core",
+    "crates/wdrprobe-cli",
+    "crates/wdrprobe-tui",
+    "Desktop/src-tauri",
+]
+resolver = "2"

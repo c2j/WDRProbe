@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod export_import_workflow_tests {
-    use crate::models::export::*;
+    use wdrprobe_desktop_lib::models::export::*;
 
     /// Test complete export/import cycle
     #[test]

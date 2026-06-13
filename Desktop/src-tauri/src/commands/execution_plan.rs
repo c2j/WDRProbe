@@ -1,9 +1,10 @@
 // Execution plan commands
 // IPC commands for SQL execution plan visualization
 
-use crate::database::{DatabaseOperations, DatabasePool};
-use crate::models::execution_plan::*;
-use crate::parsers::sql_parser::*;
+use crate::adapters::ogexplain_adapter;
+use wdrprobe_core::database::{DatabaseOperations, DatabasePool};
+use wdrprobe_core::models::execution_plan::*;
+use wdrprobe_core::parsers::sql_parser::*;
 
 
 /// Get hot SQL queries from WDR reports
@@ -316,7 +317,7 @@ pub async fn save_execution_plan(
         _ => return Err(format!("Unknown plan source: {}", plan_source)),
     };
 
-    let plan = crate::models::SqlExecutionPlan {
+    let plan = wdrprobe_core::models::SqlExecutionPlan {
         id: 0, // Will be assigned by database
         sql_id: Some(effective_sql_id),
         plan_tree,
@@ -958,4 +959,80 @@ pub enum OptimizationConfidence {
     High,
     Medium,
     Low,
+}
+
+// ===== ogexplain-core Commands =====
+
+/// Parse execution plan using ogexplain-core (new parser, coexists with existing)
+#[tauri::command]
+pub async fn parse_explain_with_ogexplain(
+    plan_text: String,
+) -> Result<wdrprobe_core::models::execution_plan::ExecutionPlanNode, String> {
+    let plan = ogexplain_core::parse(&plan_text)
+        .map_err(|e| format!("Parse error: {}", e))?;
+    Ok(ogexplain_adapter::convert_plan_node(&plan.root))
+}
+
+/// Diagnose execution plan using ogexplain-core 25 rules
+#[tauri::command]
+pub async fn diagnose_explain_plan(
+    plan_text: String,
+) -> Result<ogexplain_adapter::DiagnosticReportResponse, String> {
+    let plan = ogexplain_core::parse(&plan_text)
+        .map_err(|e| format!("Parse error: {}", e))?;
+    let report = ogexplain_core::analyze(&plan);
+    Ok(ogexplain_adapter::convert_diagnostic_report(&report, &plan))
+}
+
+/// Generate cost-actual deviation heatmap (requires EXPLAIN ANALYZE data)
+#[tauri::command]
+pub async fn get_explain_heatmap(
+    plan_text: String,
+) -> Result<Option<ogexplain_adapter::HeatmapData>, String> {
+    let plan = ogexplain_core::parse(&plan_text)
+        .map_err(|e| format!("Parse error: {}", e))?;
+    Ok(ogexplain_core::heatmap(&plan).map(|h| ogexplain_adapter::convert_heatmap(&h)))
+}
+
+/// Generate resource waterfall chart (requires EXPLAIN ANALYZE data)
+#[tauri::command]
+pub async fn get_explain_waterfall(
+    plan_text: String,
+) -> Result<Option<ogexplain_adapter::WaterfallData>, String> {
+    let plan = ogexplain_core::parse(&plan_text)
+        .map_err(|e| format!("Parse error: {}", e))?;
+    Ok(ogexplain_core::waterfall(&plan).map(|w| ogexplain_adapter::convert_waterfall(&w)))
+}
+
+/// List all 25 diagnostic rules with metadata
+#[tauri::command]
+pub async fn list_diagnostic_rules() -> Result<Vec<ogexplain_adapter::RuleInfo>, String> {
+    // Static rule catalog - matches ogexplain-core's 25 rules
+    Ok(vec![
+        ogexplain_adapter::RuleInfo { rule_id: "SCAN-001".into(), category: "Scan".into(), title: "Large table full scan".into(), description: "Seq Scan on table exceeding row threshold".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "SCAN-004".into(), category: "Scan".into(), title: "Filter without index".into(), description: "Filter removing many rows without index support".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "JOIN-001".into(), category: "Join".into(), title: "Nested loop on large tables".into(), description: "Nested loop join with high row counts".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "JOIN-002".into(), category: "Join".into(), title: "Hash join spill to disk".into(), description: "Hash join exceeding work_mem".into(), severity: "Critical".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "MEM-001".into(), category: "Memory".into(), title: "Sort spill to disk".into(), description: "External merge sort including VectorSort".into(), severity: "Critical".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "MEM-004".into(), category: "Memory".into(), title: "High peak memory".into(), description: "Highest-memory node in subtree".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "SORT-003".into(), category: "Sort".into(), title: "Duplicate sort".into(), description: "Recursive subtree duplicate Sort Keys".into(), severity: "Info".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "NET-001".into(), category: "Network".into(), title: "Broadcast large data".into(), description: "Broadcasting excessive rows".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "EST-001".into(), category: "Estimation".into(), title: "Severe row estimation error".into(), description: "Actual rows far exceed/fall below estimate".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "EST-004".into(), category: "Estimation".into(), title: "Nested loop from underestimation".into(), description: "Nested Loop caused by row underestimation".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "PUSH-001".into(), category: "Pushdown".into(), title: "Query not pushed down".into(), description: "FQS failure with signal accumulation".into(), severity: "Critical".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "PUSH-002".into(), category: "Pushdown".into(), title: "Multi-layer streaming".into(), description: "Streaming layer chain detected".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "TYPE-001".into(), category: "Type".into(), title: "Implicit type coercion".into(), description: "TypeMismatch with fix suggestions".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "TYPE-004".into(), category: "Type".into(), title: "LIKE with leading wildcard".into(), description: "Leading wildcard prevents index usage".into(), severity: "Info".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "VEC-001".into(), category: "Vectorization".into(), title: "Mixed row/vector engines".into(), description: "Row↔Vector adapter boundaries".into(), severity: "Info".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "GEN-001".into(), category: "General".into(), title: "Plan too deep".into(), description: "Plan depth exceeds threshold".into(), severity: "Info".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "SUBQ-001".into(), category: "Subquery".into(), title: "Subquery not pulled up".into(), description: "SubqueryScan nodes detected".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "REW-001".into(), category: "Subquery".into(), title: "Large IN list not rewritten".into(), description: "IN lists with many values".into(), severity: "Info".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "SUBQ-006".into(), category: "Subquery".into(), title: "Correlated subquery self-update".into(), description: "Self-referencing correlated subqueries".into(), severity: "Critical".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "AGG-001".into(), category: "Aggregate".into(), title: "Group aggregate should be hash".into(), description: "Suggest Hash Aggregate for large GROUP BY".into(), severity: "Info".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "AGG-002".into(), category: "Aggregate".into(), title: "Hash aggregate spill to disk".into(), description: "Hash Aggregate exceeding work_mem".into(), severity: "Critical".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "SKEW-001".into(), category: "Distribution".into(), title: "Data skew detected".into(), description: "Uneven row distribution across datanodes".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "DIST-001".into(), category: "Distribution".into(), title: "Distribution column mismatch".into(), description: "Join columns don't match distribution columns".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "STATS-001".into(), category: "Statistics".into(), title: "Stats not collected".into(), description: "Tables with missing or stale statistics".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo { rule_id: "PART-001".into(), category: "Partition".into(), title: "Partition pruning failure".into(), description: "Full partition scan when pruning should help".into(), severity: "Warning".into() },
+    ])
 }

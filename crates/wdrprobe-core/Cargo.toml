@@ -1,0 +1,26 @@
+[package]
+name = "wdrprobe-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Core library for WDRProbe - WDR report parsing, SQLite storage, and analysis"
+
+[dependencies]
+# Database
+rusqlite = { version = "0.30", features = ["bundled", "chrono", "serde_json"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.23"
+
+# Parsing
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+scraper = "0.17"
+regex = "1.10"
+nom = "7.1"
+memmap2 = "0.9"
+
+# Utilities
+thiserror = "1.0"
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }

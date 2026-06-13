@@ -366,3 +366,105 @@ export interface DiffHistoryItem {
     right: string;
     unified: string;
 }
+
+// === ogexplain-analyzer Integration Types (Phase 1) ===
+
+export interface DiagnosticReportResponse {
+  plan: ExecutionPlanNode;
+  findings: FindingInfo[];
+  stats: DiagnosticStats;
+}
+
+export interface FindingInfo {
+  ruleId: string;
+  severity: 'critical' | 'warning' | 'info';
+  category: string;
+  title: string;
+  detail: string;
+  nodeLine?: number;
+  nodeType?: string;
+  suggestion?: string;
+}
+
+export interface DiagnosticStats {
+  totalFindings: number;
+  criticalCount: number;
+  warningCount: number;
+  infoCount: number;
+}
+
+export interface HeatmapData {
+  nodes: HeatmapNode[];
+  summary: HeatmapSummary;
+}
+
+export interface HeatmapNode {
+  operation: string;
+  estimatedCost: number;
+  actualCost: number;
+  qError: number;
+  severity: string;
+}
+
+export interface HeatmapSummary {
+  maxQerror: number;
+  avgQerror: number;
+  nodesWithDeviation: number;
+}
+
+export interface WaterfallData {
+  nodes: WaterfallNode[];
+  bottlenecks: WaterfallBottlenecks;
+}
+
+export interface WaterfallNode {
+  operation: string;
+  cpuTime: number;
+  memoryKb: number;
+  percentage: number;
+}
+
+export interface WaterfallBottlenecks {
+  cpuBottlenecks: string[];
+  memoryBottlenecks: string[];
+}
+
+export interface RuleInfo {
+  ruleId: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: string;
+}
+
+// ===== SQL Rewrite Types =====
+
+export interface RewriteOutput {
+  original_sql: string;
+  rewritten_sql: string;
+  changed: boolean;
+  suggestions: RewriteSuggestion[];
+  match_failures: MatchFailureInfo[];
+  rules_applied: string[];
+}
+
+export interface RewriteSuggestion {
+  rule_id: string;
+  rule_description: string;
+  confidence: 'High' | 'Medium' | 'Low';
+  notes: string[];
+  message?: string;
+}
+
+export interface MatchFailureInfo {
+  rule_id: string;
+  reason: string;
+}
+
+export interface RewriteRuleInfo {
+  id: string;
+  category: string;
+  safety_level: string;
+  description: string;
+  default_enabled: boolean;
+}

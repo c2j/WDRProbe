@@ -1,10 +1,10 @@
 // Comparison commands
 // IPC commands for WDR report comparison
 
-use crate::database::DatabaseOperations;
-use crate::database::DatabasePool;
-use crate::models::comparison::*;
-use crate::models::TopSql;
+use wdrprobe_core::database::DatabaseOperations;
+use wdrprobe_core::database::DatabasePool;
+use wdrprobe_core::models::comparison::*;
+use wdrprobe_core::models::TopSql;
 use std::collections::HashMap;
 use tauri::State;
 
