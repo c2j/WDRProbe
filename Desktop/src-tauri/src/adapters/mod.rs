@@ -1,4 +1,3 @@
-// Adapter modules for external library integration
-// Converts external types to WDRProbe internal models
-
+pub mod metamorphosis_adapter;
 pub mod ogexplain_adapter;
+pub mod schema_extractor;

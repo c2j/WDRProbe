@@ -25,7 +25,9 @@ import {
   WaterfallData,
   WaterfallNode,
   WaterfallBottlenecks,
-  RuleInfo
+  RuleInfo,
+  RewriteOutput,
+  RewriteRuleInfo
 } from '../types';
 
 // Mock Data
@@ -441,3 +443,37 @@ export const ApiService = {
     throw new Error('listDiagnosticRules requires Tauri runtime');
   },
 };
+
+// ===== SQL Rewrite API =====
+
+export async function rewriteSql(
+  sql: string,
+  reportId?: number,
+  schemaJson?: string
+): Promise<RewriteOutput> {
+  if (isTauri()) {
+    return invoke('rewrite_sql', { sql, reportId, schemaJson });
+  }
+  // Mock fallback
+  return {
+    original_sql: sql,
+    rewritten_sql: sql,
+    changed: false,
+    suggestions: [],
+    match_failures: [],
+    rules_applied: [],
+  };
+}
+
+export async function listRewriteRules(): Promise<RewriteRuleInfo[]> {
+  if (isTauri()) {
+    return invoke('list_rewrite_rules');
+  }
+  // Mock fallback
+  return [
+    { id: 'eliminate-select-star', category: 'Semantic', safety_level: 'Safe', description: 'SELECT * → explicit column list', default_enabled: true },
+    { id: 'detect-duplicate-eq-keys', category: 'DataQuality', safety_level: 'Manual', description: 'WHERE equalities → uniqueness probe', default_enabled: true },
+    { id: 'subquery-to-join', category: 'Performance', safety_level: 'Conditional', description: 'EXISTS/IN subqueries → JOIN', default_enabled: true },
+    { id: 'extract-candidate-values', category: 'DataQuality', safety_level: 'Manual', description: 'Parameterized columns → candidate values', default_enabled: false },
+  ];
+}

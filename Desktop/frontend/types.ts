@@ -436,3 +436,35 @@ export interface RuleInfo {
   description: string;
   severity: string;
 }
+
+// ===== SQL Rewrite Types =====
+
+export interface RewriteOutput {
+  original_sql: string;
+  rewritten_sql: string;
+  changed: boolean;
+  suggestions: RewriteSuggestion[];
+  match_failures: MatchFailureInfo[];
+  rules_applied: string[];
+}
+
+export interface RewriteSuggestion {
+  rule_id: string;
+  rule_description: string;
+  confidence: 'High' | 'Medium' | 'Low';
+  notes: string[];
+  message?: string;
+}
+
+export interface MatchFailureInfo {
+  rule_id: string;
+  reason: string;
+}
+
+export interface RewriteRuleInfo {
+  id: string;
+  category: string;
+  safety_level: string;
+  description: string;
+  default_enabled: boolean;
+}

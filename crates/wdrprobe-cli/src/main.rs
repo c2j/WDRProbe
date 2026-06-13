@@ -110,6 +110,9 @@ enum Commands {
         #[arg(long, default_value = "text")]
         format: String,
     },
+
+    /// Rewrite SQL using metamorphosis rules (SELECT * expansion, subquery-to-join, etc.)
+    Rewrite(crate::commands::rewrite::RewriteArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -139,6 +142,7 @@ fn main() -> anyhow::Result<()> {
             sql,
             format,
         } => commands::diagnose::run(plan_file, plan_text, sql, format),
+        Commands::Rewrite(args) => commands::rewrite::run(args),
     }
 }
 

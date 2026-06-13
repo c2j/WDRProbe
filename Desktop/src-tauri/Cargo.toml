@@ -34,6 +34,9 @@ nom = "7.1"
 memmap2 = "0.9"
 wdrprobe-core = { path = "../../crates/wdrprobe-core" }
 ogexplain-core = { path = "../../../ogexplain-analyzer/crates/ogexplain-core" }
+metamorphosis-core = { path = "../../../metamorphosis/crates/core" }
+metamorphosis-rules = { path = "../../../metamorphosis/crates/rules" }
+ogsql-parser = { git = "https://github.com/c2j/ogsql-parser" }
 
 # Async runtime
 tokio = { version = "1.34", features = ["full"] }

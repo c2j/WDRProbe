@@ -99,6 +99,8 @@ fn main() {
             audit::get_sql_audit_issues,
             audit::update_audit_issue_status,
             audit::bulk_update_audit_issues,
+            audit::rewrite_sql,
+            audit::list_rewrite_rules,
             // Export/Import commands
             export::export_wdr_report,
             export::export_comparison,

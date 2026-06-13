@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ApiService } from '../services/apiService';
-import { SqlAuditIssue } from '../types';
+import { ApiService, rewriteSql } from '../services/apiService';
+import { SqlAuditIssue, RewriteOutput } from '../types';
 import { X, AlertTriangle, CheckCircle, Code, Zap, FileText } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 
@@ -8,12 +8,29 @@ const SqlAuditPage: React.FC = () => {
   const { t } = useI18n();
   const [issues, setIssues] = useState<SqlAuditIssue[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<SqlAuditIssue | null>(null);
+  const [rewriteInput, setRewriteInput] = useState('');
+  const [schemaInput, setSchemaInput] = useState('');
+  const [rewriteResult, setRewriteResult] = useState<RewriteOutput | null>(null);
+  const [rewriteLoading, setRewriteLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     ApiService.getSqlAuditIssues().then(setIssues);
   }, []);
 
   const closeLoop = () => setSelectedIssue(null);
+
+  const handleRewrite = async () => {
+    setRewriteLoading(true);
+    try {
+      const result = await rewriteSql(rewriteInput, undefined, schemaInput || undefined);
+      setRewriteResult(result);
+    } catch (err) {
+      console.error('Rewrite error:', err);
+    } finally {
+      setRewriteLoading(false);
+    }
+  };
 
   const STATUS_KEYS: Record<string, string> = {
     'All': 'audit.all',
@@ -178,6 +195,120 @@ const SqlAuditPage: React.FC = () => {
                 </div>
             </div>
         )}
+
+        {/* SQL Rewrite Panel */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 mt-6">
+          <h2 className="text-xl font-bold mb-4">{t('rewrite.title')}</h2>
+          <p className="text-sm text-gray-500 mb-4">{t('rewrite.description')}</p>
+          
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('rewrite.inputLabel')}</label>
+              <textarea
+                className="w-full h-32 p-3 border rounded font-mono text-sm"
+                placeholder={t('rewrite.inputPlaceholder')}
+                value={rewriteInput}
+                onChange={(e) => setRewriteInput(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('rewrite.schemaLabel')}</label>
+              <textarea
+                className="w-full h-20 p-3 border rounded font-mono text-xs"
+                placeholder={t('rewrite.schemaPlaceholder')}
+                value={schemaInput}
+                onChange={(e) => setSchemaInput(e.target.value)}
+              />
+            </div>
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              onClick={handleRewrite}
+              disabled={!rewriteInput.trim() || rewriteLoading}
+            >
+              {rewriteLoading ? t('rewrite.loading') : t('rewrite.button')}
+            </button>
+          </div>
+
+          {rewriteResult && (
+            <div className="mt-6 space-y-4">
+              {rewriteResult.changed ? (
+                <>
+                  <div className="p-3 bg-green-50 text-green-700 rounded border border-green-200">
+                    {t('rewrite.changed')}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="font-semibold mb-2">{t('rewrite.original')}</h3>
+                      <pre className="p-3 bg-gray-100 rounded text-xs font-mono overflow-auto">
+                        {rewriteResult.original_sql}
+                      </pre>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-2 text-green-600">{t('rewrite.rewritten')}</h3>
+                      <pre className="p-3 bg-green-50 rounded text-xs font-mono overflow-auto border border-green-200">
+                        {rewriteResult.rewritten_sql}
+                      </pre>
+                    </div>
+                  </div>
+                  
+                  <button
+                    className="px-3 py-1 text-sm border rounded hover:bg-gray-100"
+                    onClick={() => {
+                      navigator.clipboard.writeText(rewriteResult.rewritten_sql);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                  >
+                    {copied ? t('rewrite.copied') : t('rewrite.copyRewritten')}
+                  </button>
+                </>
+              ) : (
+                <div className="p-3 bg-gray-100 text-gray-500 rounded">
+                  {t('rewrite.noChange')}
+                </div>
+              )}
+
+              {rewriteResult.suggestions.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">{t('rewrite.suggestions')}</h3>
+                  {rewriteResult.suggestions.map((s, i) => (
+                    <div key={i} className="border rounded p-3 mb-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-xs bg-gray-200 px-2 py-0.5 rounded">{s.rule_id}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          s.confidence === 'High' ? 'bg-green-200 text-green-800' :
+                          s.confidence === 'Medium' ? 'bg-yellow-200 text-yellow-800' :
+                          'bg-gray-200 text-gray-800'
+                        }`}>
+                          {s.confidence}
+                        </span>
+                      </div>
+                      <p className="text-sm">{s.rule_description}</p>
+                      {s.notes.map((note, j) => (
+                        <p key={j} className="text-xs text-gray-500 mt-1">• {note}</p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {rewriteResult.match_failures.length > 0 && (
+                <details className="border rounded p-3">
+                  <summary className="cursor-pointer text-sm font-medium">{t('rewrite.matchFailures')}</summary>
+                  <div className="mt-2 space-y-1">
+                    {rewriteResult.match_failures.map((f, i) => (
+                      <div key={i} className="text-xs flex gap-2">
+                        <span className="font-mono text-gray-600">{f.rule_id}:</span>
+                        <span className="text-gray-500">{f.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
     </div>
   );
 };
