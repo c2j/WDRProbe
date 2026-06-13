@@ -48,3 +48,5 @@ Cargo.lock
 *.swp
 *.swo
 *~
+*.db
+.opencode/
