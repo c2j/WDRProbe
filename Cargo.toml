@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "crates/wdrprobe-core",
+    "crates/wdrprobe-cli",
+    "Desktop/src-tauri",
+]
+resolver = "2"
