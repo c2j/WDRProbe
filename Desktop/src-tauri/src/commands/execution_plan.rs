@@ -1,6 +1,7 @@
 // Execution plan commands
 // IPC commands for SQL execution plan visualization
 
+#[cfg(feature = "diagnostic-engines")]
 use crate::adapters::ogexplain_adapter;
 use wdrprobe_core::database::{DatabaseOperations, DatabasePool};
 use wdrprobe_core::models::execution_plan::*;
@@ -963,6 +964,7 @@ pub enum OptimizationConfidence {
 
 // ===== ogexplain-core Commands =====
 
+#[cfg(feature = "diagnostic-engines")]
 /// Parse execution plan using ogexplain-core (new parser, coexists with existing)
 #[tauri::command]
 pub async fn parse_explain_with_ogexplain(
@@ -973,6 +975,7 @@ pub async fn parse_explain_with_ogexplain(
     Ok(ogexplain_adapter::convert_plan_node(&plan.root))
 }
 
+#[cfg(feature = "diagnostic-engines")]
 /// Diagnose execution plan using ogexplain-core 25 rules
 #[tauri::command]
 pub async fn diagnose_explain_plan(
@@ -984,6 +987,7 @@ pub async fn diagnose_explain_plan(
     Ok(ogexplain_adapter::convert_diagnostic_report(&report, &plan))
 }
 
+#[cfg(feature = "diagnostic-engines")]
 /// Generate cost-actual deviation heatmap (requires EXPLAIN ANALYZE data)
 #[tauri::command]
 pub async fn get_explain_heatmap(
@@ -994,6 +998,7 @@ pub async fn get_explain_heatmap(
     Ok(ogexplain_core::heatmap(&plan).map(|h| ogexplain_adapter::convert_heatmap(&h)))
 }
 
+#[cfg(feature = "diagnostic-engines")]
 /// Generate resource waterfall chart (requires EXPLAIN ANALYZE data)
 #[tauri::command]
 pub async fn get_explain_waterfall(
@@ -1004,6 +1009,7 @@ pub async fn get_explain_waterfall(
     Ok(ogexplain_core::waterfall(&plan).map(|w| ogexplain_adapter::convert_waterfall(&w)))
 }
 
+#[cfg(feature = "diagnostic-engines")]
 /// List all 25 diagnostic rules with metadata
 #[tauri::command]
 pub async fn list_diagnostic_rules() -> Result<Vec<ogexplain_adapter::RuleInfo>, String> {

@@ -2,7 +2,9 @@
 // IPC commands for SQL audit and detection rules
 // Per Constitution Principle IX - Audit trail for all operations
 
-use crate::adapters::{metamorphosis_adapter, schema_extractor};
+#[cfg(feature = "diagnostic-engines")]
+use crate::adapters::metamorphosis_adapter;
+use crate::adapters::schema_extractor;
 use wdrprobe_core::database::DatabaseOperations;
 use wdrprobe_core::database::DatabasePool;
 use wdrprobe_core::models::audit::*;
@@ -995,6 +997,7 @@ fn generate_summary_from_db(conn: &rusqlite::Connection) -> Result<AuditSummary,
 // SQL Rewrite Commands (metamorphosis integration)
 // ============================================================================
 
+#[cfg(feature = "diagnostic-engines")]
 /// Rewrite SQL using metamorphosis rules
 #[tauri::command(rename_all = "camelCase")]
 pub async fn rewrite_sql(
@@ -1003,7 +1006,6 @@ pub async fn rewrite_sql(
     report_id: Option<i64>,
     schema_json: Option<String>,
 ) -> Result<metamorphosis_adapter::RewriteOutput, String> {
-    // Build schema
     let schema = if let Some(json) = schema_json {
         Some(schema_extractor::parse_schema_json(&json)?)
     } else if let Some(rid) = report_id {
@@ -1016,6 +1018,7 @@ pub async fn rewrite_sql(
     adapter.rewrite(&sql, schema.as_ref())
 }
 
+#[cfg(feature = "diagnostic-engines")]
 /// List all available rewrite rules
 #[tauri::command(rename_all = "camelCase")]
 pub async fn list_rewrite_rules() -> Result<Vec<metamorphosis_adapter::RuleInfo>, String> {
