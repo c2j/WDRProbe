@@ -17,7 +17,10 @@ import {
   Languages,
   SplitSquareHorizontal,
   FileSearch,
-  Scale
+  Scale,
+  Flame,
+  BarChart3,
+  ListChecks
 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 
@@ -38,6 +41,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     // { path: '/comparison', labelKey: 'menu.comparison', icon: GitCompare },
     { path: '/visualizer', labelKey: 'menu.visualizer', icon: GitBranch },
     { path: '/plandiff', labelKey: 'menu.plandiff', icon: SplitSquareHorizontal },
+    { path: '/heatmap', labelKey: 'menu.heatmap', icon: Flame },
+    { path: '/waterfall', labelKey: 'menu.waterfall', icon: BarChart3 },
+    { path: '/diagnostic-rules', labelKey: 'menu.diagnosticRules', icon: ListChecks },
     { path: '/thresholds', labelKey: 'menu.thresholds', icon: Settings },
     // { path: '/sqlaudit', labelKey: 'menu.sqlaudit', icon: ShieldAlert },
     // { path: '/auditlog', labelKey: 'menu.auditlog', icon: History },

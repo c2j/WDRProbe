@@ -443,6 +443,36 @@ const translations: Record<Language, Record<string, string>> = {
     'vis.diagnostic.rulesCount': '{{count}} rules',
     'vis.diagnostic.parseWithOgexplain': 'Parse with ogexplain',
     'vis.diagnostic.diagnose': 'Run Diagnostics',
+
+    // Menu items for new pages
+    'menu.heatmap': 'Cost Heatmap',
+    'menu.waterfall': 'Resource Waterfall',
+    'menu.diagnosticRules': 'Diagnostic Rules',
+
+    // New diagnostic page labels
+    'vis.diagnostic.analyze': 'Analyze',
+    'vis.diagnostic.planInput': 'EXPLAIN ANALYZE Plan Text',
+    'vis.diagnostic.planPlaceholder': 'Paste EXPLAIN ANALYZE output here...',
+    'vis.diagnostic.maxQerror': 'Max Q-Error',
+    'vis.diagnostic.avgQerror': 'Avg Q-Error',
+    'vis.diagnostic.nodesWithDeviation': 'Nodes with Deviation',
+    'vis.diagnostic.operation': 'Operation',
+    'vis.diagnostic.estimatedCost': 'Estimated Cost',
+    'vis.diagnostic.actualCost': 'Actual Cost',
+    'vis.diagnostic.qError': 'Q-Error',
+    'vis.diagnostic.severity': 'Severity',
+    'vis.diagnostic.cpuTime': 'CPU Time (ms)',
+    'vis.diagnostic.memory': 'Memory (KB)',
+    'vis.diagnostic.percentage': 'Percentage',
+    'vis.diagnostic.cpuBottlenecks': 'CPU Bottlenecks',
+    'vis.diagnostic.memoryBottlenecks': 'Memory Bottlenecks',
+    'vis.diagnostic.noBottlenecks': 'No bottlenecks detected',
+    'vis.diagnostic.searchRules': 'Search rules...',
+    'vis.diagnostic.allCategories': 'All Categories',
+    'vis.diagnostic.allSeverities': 'All Severities',
+    'vis.diagnostic.loading': 'Loading...',
+    'vis.diagnostic.error': 'Error: {msg}',
+    'vis.diagnostic.noRules': 'No rules found',
   },
   zh: {
     // Menu
@@ -876,6 +906,36 @@ const translations: Record<Language, Record<string, string>> = {
     'vis.diagnostic.rulesCount': '{{count}} 条规则',
     'vis.diagnostic.parseWithOgexplain': '使用 ogexplain 解析',
     'vis.diagnostic.diagnose': '运行诊断',
+
+    // Menu items for new pages
+    'menu.heatmap': '成本热力图',
+    'menu.waterfall': '资源瀑布图',
+    'menu.diagnosticRules': '诊断规则',
+
+    // New diagnostic page labels
+    'vis.diagnostic.analyze': '分析',
+    'vis.diagnostic.planInput': 'EXPLAIN ANALYZE 计划文本',
+    'vis.diagnostic.planPlaceholder': '在此粘贴 EXPLAIN ANALYZE 输出...',
+    'vis.diagnostic.maxQerror': '最大偏差倍数',
+    'vis.diagnostic.avgQerror': '平均偏差倍数',
+    'vis.diagnostic.nodesWithDeviation': '偏差节点数',
+    'vis.diagnostic.operation': '操作',
+    'vis.diagnostic.estimatedCost': '估算成本',
+    'vis.diagnostic.actualCost': '实际成本',
+    'vis.diagnostic.qError': '偏差倍数',
+    'vis.diagnostic.severity': '严重程度',
+    'vis.diagnostic.cpuTime': 'CPU 时间 (ms)',
+    'vis.diagnostic.memory': '内存 (KB)',
+    'vis.diagnostic.percentage': '占比',
+    'vis.diagnostic.cpuBottlenecks': 'CPU 瓶颈',
+    'vis.diagnostic.memoryBottlenecks': '内存瓶颈',
+    'vis.diagnostic.noBottlenecks': '未检测到瓶颈',
+    'vis.diagnostic.searchRules': '搜索规则...',
+    'vis.diagnostic.allCategories': '全部分类',
+    'vis.diagnostic.allSeverities': '全部严重程度',
+    'vis.diagnostic.loading': '加载中...',
+    'vis.diagnostic.error': '错误: {msg}',
+    'vis.diagnostic.noRules': '未找到规则',
   }
 };
 

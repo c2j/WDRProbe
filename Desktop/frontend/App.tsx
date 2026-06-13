@@ -10,6 +10,9 @@ import SqlAudit from "./pages/SqlAudit";
 import AuditLog from "./pages/AuditLog";
 import PlanVisualizer from "./pages/PlanVisualizer";
 import PlanDiff from "./pages/PlanDiff";
+import PlanHeatmap from "./pages/PlanHeatmap";
+import PlanWaterfall from "./pages/PlanWaterfall";
+import DiagnosticRules from "./pages/DiagnosticRules";
 import WDRReportAnalyze from "./pages/WDRReportAnalyze";
 import WDRComparison from "./pages/WDRComparison";
 import { I18nProvider } from "./context/I18nContext";
@@ -32,6 +35,9 @@ const App: React.FC = () => {
                 <Route path="/comparison" element={<ComparisonAnalysis />} />
                 <Route path="/visualizer" element={<PlanVisualizer />} />
                 <Route path="/plandiff" element={<PlanDiff />} />
+                <Route path="/heatmap" element={<PlanHeatmap />} />
+                <Route path="/waterfall" element={<PlanWaterfall />} />
+                <Route path="/diagnostic-rules" element={<DiagnosticRules />} />
                 <Route path="/thresholds" element={<ThresholdConfig />} />
                 <Route path="/sqlaudit" element={<SqlAudit />} />
                 <Route path="/auditlog" element={<AuditLog />} />
