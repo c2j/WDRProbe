@@ -3,9 +3,9 @@
 // Per Constitution Principle IV - DTO format with audit trail
 // Per Constitution Principle IX - All changes logged to audit_logs
 
-use crate::database::DatabaseOperations;
-use crate::database::DatabasePool;
-use crate::models::threshold::*;
+use wdrprobe_core::database::DatabaseOperations;
+use wdrprobe_core::database::DatabasePool;
+use wdrprobe_core::models::threshold::*;
 use tauri::State;
 
 /// Get all threshold configurations, optionally filtered by category
@@ -79,7 +79,7 @@ pub async fn update_threshold(
         .map_err(|e| format!("Failed to update threshold: {}", e))?;
 
     // Log to audit_logs per Constitution IX
-    let audit_log = crate::models::AuditLog {
+    let audit_log = wdrprobe_core::models::AuditLog {
         id: 0,
         timestamp: chrono::Utc::now().to_rfc3339(),
         user_id: Some(changed_by.clone()),
@@ -205,7 +205,7 @@ pub async fn batch_update_thresholds(
             .join(", ")
     );
 
-    let audit_log = crate::models::AuditLog {
+    let audit_log = wdrprobe_core::models::AuditLog {
         id: 0,
         timestamp: chrono::Utc::now().to_rfc3339(),
         user_id: Some(changed_by),
@@ -265,7 +265,7 @@ pub async fn reset_threshold_to_default(
         .map_err(|e| format!("Failed to reset threshold: {}", e))?;
 
     // Log to audit
-    let audit_log = crate::models::AuditLog {
+    let audit_log = wdrprobe_core::models::AuditLog {
         id: 0,
         timestamp: chrono::Utc::now().to_rfc3339(),
         user_id: Some(changed_by),
@@ -339,7 +339,7 @@ pub async fn apply_threshold_template(
     }
 
     // Log to audit
-    let audit_log = crate::models::AuditLog {
+    let audit_log = wdrprobe_core::models::AuditLog {
         id: 0,
         timestamp: chrono::Utc::now().to_rfc3339(),
         user_id: Some(changed_by),

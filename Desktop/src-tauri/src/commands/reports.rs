@@ -1,12 +1,12 @@
 // Reports commands
 // IPC commands for WDR report import, retrieval, and management
 
-use crate::database::DatabaseOperations;
-use crate::database::DatabasePool;
-use crate::models::{
+use wdrprobe_core::database::DatabaseOperations;
+use wdrprobe_core::database::DatabasePool;
+use wdrprobe_core::models::{
     EfficiencyMetrics, LoadProfile, WdrReport, WdrReportDetail, WdrReportListResponse,
 };
-use crate::parsers::complete_wdr_parser::parse_complete_wdr_report;
+use wdrprobe_core::parsers::complete_wdr_parser::parse_complete_wdr_report;
 use tauri::State;
 
 /// Import WDR report from file
@@ -242,7 +242,7 @@ pub async fn delete_wdr_report(
 pub async fn get_hot_sqls(
     pool: State<'_, DatabasePool>,
     limit: Option<i32>,
-) -> Result<Vec<crate::models::TopSql>, String> {
+) -> Result<Vec<wdrprobe_core::models::TopSql>, String> {
     let pool_ref = pool.inner();
 
     let sqls = DatabaseOperations::get_hot_sqls(pool_ref, limit)

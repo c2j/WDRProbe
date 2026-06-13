@@ -7,7 +7,7 @@
 
 use ogexplain_core::model::plan::{ExplainPlan, PlanNode};
 use ogexplain_core::analyzer::report::{DiagnosticReport, Severity};
-use crate::models::execution_plan::{
+use wdrprobe_core::models::execution_plan::{
     ExecutionPlanNode, PlanNodeDetails,
 };
 

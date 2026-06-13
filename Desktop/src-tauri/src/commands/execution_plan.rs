@@ -2,9 +2,9 @@
 // IPC commands for SQL execution plan visualization
 
 use crate::adapters::ogexplain_adapter;
-use crate::database::{DatabaseOperations, DatabasePool};
-use crate::models::execution_plan::*;
-use crate::parsers::sql_parser::*;
+use wdrprobe_core::database::{DatabaseOperations, DatabasePool};
+use wdrprobe_core::models::execution_plan::*;
+use wdrprobe_core::parsers::sql_parser::*;
 
 
 /// Get hot SQL queries from WDR reports
@@ -317,7 +317,7 @@ pub async fn save_execution_plan(
         _ => return Err(format!("Unknown plan source: {}", plan_source)),
     };
 
-    let plan = crate::models::SqlExecutionPlan {
+    let plan = wdrprobe_core::models::SqlExecutionPlan {
         id: 0, // Will be assigned by database
         sql_id: Some(effective_sql_id),
         plan_tree,
@@ -967,7 +967,7 @@ pub enum OptimizationConfidence {
 #[tauri::command]
 pub async fn parse_explain_with_ogexplain(
     plan_text: String,
-) -> Result<crate::models::execution_plan::ExecutionPlanNode, String> {
+) -> Result<wdrprobe_core::models::execution_plan::ExecutionPlanNode, String> {
     let plan = ogexplain_core::parse(&plan_text)
         .map_err(|e| format!("Parse error: {}", e))?;
     Ok(ogexplain_adapter::convert_plan_node(&plan.root))

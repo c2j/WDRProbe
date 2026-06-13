@@ -3,10 +3,6 @@
 
 mod adapters;
 mod commands;
-mod database;
-mod models;
-mod parsers;
-mod utils;
 
 use commands::audit;
 use commands::comparison;
@@ -15,8 +11,8 @@ use commands::execution_plan;
 use commands::export;
 use commands::reports;
 use commands::threshold;
-use database::{init_database, initialize_schema, DatabasePool};
-use database::schema::{initialize_default_thresholds, initialize_sample_audit_issues};
+use wdrprobe_core::database::{init_database, initialize_schema};
+use wdrprobe_core::database::schema::{initialize_default_thresholds, initialize_sample_audit_issues};
 use tauri::Manager;
 
 #[cfg_attr(

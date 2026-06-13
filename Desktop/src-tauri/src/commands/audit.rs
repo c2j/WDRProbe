@@ -2,10 +2,10 @@
 // IPC commands for SQL audit and detection rules
 // Per Constitution Principle IX - Audit trail for all operations
 
-use crate::database::DatabaseOperations;
-use crate::database::DatabasePool;
-use crate::models::audit::*;
-use crate::models::TopSql;
+use wdrprobe_core::database::DatabaseOperations;
+use wdrprobe_core::database::DatabasePool;
+use wdrprobe_core::models::audit::*;
+use wdrprobe_core::models::TopSql;
 use rusqlite::params;
 use tauri::State;
 
@@ -30,7 +30,7 @@ impl AuditDetectionRules {
     /// Detect full table scan issues
     fn detect_full_table_scan(
         sql: &TopSql,
-        execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -77,7 +77,7 @@ impl AuditDetectionRules {
     /// Detect missing index issues
     fn detect_missing_index(
         sql: &TopSql,
-        _execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        _execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -115,7 +115,7 @@ impl AuditDetectionRules {
     /// Detect inefficient join operations
     fn detect_inefficient_join(
         sql: &TopSql,
-        execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -146,7 +146,7 @@ impl AuditDetectionRules {
     /// Detect missing database statistics
     fn detect_missing_stats(
         sql: &TopSql,
-        _execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        _execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -176,7 +176,7 @@ impl AuditDetectionRules {
     /// Detect expensive function usage
     fn detect_expensive_function(
         sql: &TopSql,
-        _execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        _execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -218,7 +218,7 @@ impl AuditDetectionRules {
     /// Detect cartesian product (missing join condition)
     fn detect_cartesian_product(
         sql: &TopSql,
-        _execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        _execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -254,7 +254,7 @@ impl AuditDetectionRules {
     /// Detect nested loop with index on large table
     fn detect_nested_loop_with_index(
         sql: &TopSql,
-        execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -287,7 +287,7 @@ impl AuditDetectionRules {
     /// Detect hash join spilling to disk
     fn detect_hash_join_too_large(
         sql: &TopSql,
-        _execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        _execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -318,7 +318,7 @@ impl AuditDetectionRules {
     /// Detect expensive sort operations
     fn detect_sort_operation(
         sql: &TopSql,
-        _execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        _execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 
@@ -350,7 +350,7 @@ impl AuditDetectionRules {
     }
 
     /// Helper: Check if plan tree contains a specific node type
-    fn plan_contains_node_type(plan: &crate::models::ExecutionPlanNode, node_type: &str) -> bool {
+    fn plan_contains_node_type(plan: &wdrprobe_core::models::ExecutionPlanNode, node_type: &str) -> bool {
         if plan.operation.contains(node_type) {
             return true;
         }
@@ -360,14 +360,14 @@ impl AuditDetectionRules {
     }
 
     /// Helper: Check if plan contains nested loop
-    fn plan_contains_nested_loop(plan: &crate::models::ExecutionPlanNode) -> bool {
+    fn plan_contains_nested_loop(plan: &wdrprobe_core::models::ExecutionPlanNode) -> bool {
         Self::plan_contains_node_type(plan, "Nested Loop")
     }
 
     /// Run all detection rules on a SQL statement
     fn detect_all_issues(
         sql: &TopSql,
-        execution_plan: Option<&crate::models::SqlExecutionPlan>,
+        execution_plan: Option<&wdrprobe_core::models::SqlExecutionPlan>,
     ) -> Vec<SqlAuditIssue> {
         let mut issues = Vec::new();
 

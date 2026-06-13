@@ -2,10 +2,10 @@
 // IPC commands for data export/import functionality
 // Per Constitution Principle IX - Audit trail for all operations
 
-use crate::database::DatabaseOperations;
-use crate::database::DatabasePool;
-use crate::models::audit::*;
-use crate::models::export::*;
+use wdrprobe_core::database::DatabaseOperations;
+use wdrprobe_core::database::DatabasePool;
+use wdrprobe_core::models::audit::*;
+use wdrprobe_core::models::export::*;
 use std::fs;
 use std::path::Path;
 use tauri::State;
