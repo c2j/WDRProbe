@@ -2,6 +2,7 @@
 members = [
     "crates/wdrprobe-core",
     "crates/wdrprobe-cli",
+    "crates/wdrprobe-tui",
     "Desktop/src-tauri",
 ]
 resolver = "2"
