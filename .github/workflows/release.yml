@@ -99,6 +99,7 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install -y \
+                build-essential \
                 libwebkit2gtk-4.0-dev libgtk-3-dev libappindicator3-dev \
                 librsvg2-dev patchelf curl pkg-config
 
@@ -115,6 +116,7 @@ jobs:
               cargo build --release
             '
 
+          find target/release -maxdepth 1 -name "wdrprobe*" -type f 2>/dev/null || echo "No binary found in target/release"
           echo "LINUX_BINARY=target/release/wdrprobe-desktop" >> $GITHUB_ENV
 
       - name: Build Linux arm64 binary (focal container, cross-compile)
@@ -142,6 +144,7 @@ jobs:
               apt-get update
 
               apt-get install -y \
+                build-essential \
                 gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
                 libwebkit2gtk-4.0-dev:arm64 libgtk-3-dev:arm64 \
                 libappindicator3-dev:arm64 librsvg2-dev:arm64 \
@@ -170,6 +173,7 @@ jobs:
               cargo build --release --target aarch64-unknown-linux-gnu
             '
 
+          find target/aarch64-unknown-linux-gnu/release -maxdepth 1 -name "wdrprobe*" -type f 2>/dev/null || echo "No binary found in target/aarch64-unknown-linux-gnu/release"
           echo "LINUX_BINARY=target/aarch64-unknown-linux-gnu/release/wdrprobe-desktop" >> $GITHUB_ENV
 
       - name: Create portable zip (Linux)
@@ -187,9 +191,19 @@ jobs:
           fi
           ZIP_NAME="WDRProbe-Desktop-${VERSION}-linux-${ARCH}.zip"
 
-          cd "${LINUX_BINARY%/*}"
-          BINARY="${LINUX_BINARY##*/}"
-          zip "${ZIP_NAME}" "${BINARY}"
+          BINARY_PATH="${LINUX_BINARY}"
+          if [ ! -f "$BINARY_PATH" ]; then
+            echo "Expected binary not found at $BINARY_PATH, searching..."
+            BINARY_PATH=$(find target -name "wdrprobe-desktop" -type f 2>/dev/null | head -1)
+          fi
+          if [ -z "$BINARY_PATH" ]; then
+            echo "ERROR: wdrprobe-desktop binary not found anywhere in target/"
+            find target -name "wdrprobe*" -type f 2>/dev/null || echo "target dir empty or missing"
+            exit 1
+          fi
+          echo "Found binary: $BINARY_PATH"
+          cd "${BINARY_PATH%/*}"
+          zip "${ZIP_NAME}" "${BINARY_PATH##*/}"
           echo "PORTABLE_ZIP=$(pwd)/${ZIP_NAME}" >> $GITHUB_ENV
 
           gh release create "${{ github.ref_name }}" \
