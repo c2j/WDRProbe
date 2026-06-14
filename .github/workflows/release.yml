@@ -59,8 +59,8 @@ jobs:
             librsvg2-dev \
             patchelf \
             python3-pip
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
 
-      # Cross-compile for arm64 using focal arm64 ports (glibc 2.31 arm64 libraries)
       - name: Setup cross-compilation (Linux arm64)
         if: matrix.cross
         run: |
@@ -70,9 +70,9 @@ jobs:
           sudo sed -i '/^deb-src /{ /\[arch=/!s/^deb-src /deb-src [arch=amd64] / }' /etc/apt/sources.list
 
           cat <<EOF | sudo tee /etc/apt/sources.list.d/arm64.list
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
           EOF
 
           sudo apt-get update
