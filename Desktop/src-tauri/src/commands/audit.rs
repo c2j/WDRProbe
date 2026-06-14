@@ -4,6 +4,7 @@
 
 #[cfg(feature = "diagnostic-engines")]
 use crate::adapters::metamorphosis_adapter;
+#[cfg(feature = "diagnostic-engines")]
 use crate::adapters::schema_extractor;
 use wdrprobe_core::database::DatabaseOperations;
 use wdrprobe_core::database::DatabasePool;
