@@ -25,12 +25,14 @@ jobs:
           - platform: macos-latest
             target: x86_64-apple-darwin
             name: macOS-x86_64
-          # ubuntu-20.04 provides glibc 2.31 (Kylin OS compatible) and webkit2gtk-4.0 (Tauri v1)
-          - platform: ubuntu-20.04
+          # ubuntu-22.04 + cargo-zigbuild targeting glibc 2.31 (Kylin OS compatible)
+          - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            zig_target: x86_64-unknown-linux-gnu.2.31
             name: Linux-x86_64
-          - platform: ubuntu-20.04
+          - platform: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
+            zig_target: aarch64-unknown-linux-gnu.2.31
             name: Linux-arm64
             cross: true
           - platform: windows-latest
@@ -47,7 +49,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Linux dependencies (x86_64)
-        if: matrix.platform == 'ubuntu-20.04' && !matrix.cross
+        if: startsWith(matrix.name, 'Linux') && !matrix.cross
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -55,7 +57,8 @@ jobs:
             libgtk-3-dev \
             libappindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            python3-pip
 
       # Cross-compile for arm64 using focal arm64 ports (glibc 2.31 arm64 libraries)
       - name: Setup cross-compilation (Linux arm64)
@@ -75,32 +78,26 @@ jobs:
           sudo apt-get update
 
           sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu
-
-          sudo apt-get install -y \
             libwebkit2gtk-4.0-dev:arm64 \
             libgtk-3-dev:arm64 \
             libappindicator3-dev:arm64 \
             librsvg2-dev:arm64 \
             libssl-dev:arm64 \
-            patchelf
-
-          mkdir -p ~/.cargo
-          cat <<EOF >> ~/.cargo/config.toml
-          [target.aarch64-unknown-linux-gnu]
-          linker = "aarch64-linux-gnu-gcc"
-          EOF
+            patchelf \
+            python3-pip
 
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
-          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Install zig and cargo-zigbuild (Linux)
+        if: startsWith(matrix.name, 'Linux')
+        run: |
+          pip3 install cargo-zigbuild ziglang
 
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
@@ -118,7 +115,10 @@ jobs:
         run: npm ci
         working-directory: Desktop
 
-      - name: Build and release Tauri application
+      # ── Build: macOS/Windows use tauri-action ─────────────────────────
+
+      - name: Build and release Tauri application (macOS/Windows)
+        if: startsWith(matrix.name, 'macOS') || startsWith(matrix.name, 'Windows')
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -129,6 +129,28 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
+
+      # ── Build: Linux uses cargo-zigbuild for glibc 2.31 compat ────────
+
+      - name: Build Linux binary (glibc 2.31)
+        if: startsWith(matrix.name, 'Linux')
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Build frontend
+          cd Desktop
+          npm run build
+
+          # Build with cargo-zigbuild targeting glibc 2.31
+          cd src-tauri
+          cargo zigbuild --release --target ${{ matrix.zig_target }}
+
+          # Ensure release exists for zip upload
+          cd ../..
+          gh release create "${{ github.ref_name }}" \
+            --draft --title "WDRProbe Desktop ${{ github.ref_name }}" \
+            --notes "Release ${{ github.ref_name }}" 2>/dev/null || true
 
       # ── Create portable zip archives (raw binary, versioned) ──────────
 
@@ -146,9 +168,9 @@ jobs:
           fi
           ZIP_NAME="WDRProbe-Desktop-${VERSION}-linux-${ARCH}.zip"
           cd "${TARGET_DIR}"
-          # Tauri renames binary to productName (may contain spaces)
-          BINARY=$(find . -maxdepth 1 -type f -name "WDRProbe*" ! -name "*.sig" | head -1)
-          if [ -z "$BINARY" ]; then
+          # cargo-zigbuild uses Cargo package name (no renaming)
+          BINARY="wdrprobe-desktop"
+          if [ ! -f "$BINARY" ]; then
             BINARY=$(find . -maxdepth 1 -type f -name "wdrprobe*" ! -name "*.sig" | head -1)
           fi
           echo "Found binary: $BINARY"
