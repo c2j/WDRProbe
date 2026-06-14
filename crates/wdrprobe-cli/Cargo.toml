@@ -7,10 +7,6 @@ description = "WDRProbe CLI — Command-line WDR report analysis and SQL diagnos
 
 [dependencies]
 wdrprobe-core = { path = "../wdrprobe-core" }
-ogexplain-core = { path = "../../../ogexplain-analyzer/crates/ogexplain-core", optional = true }
-metamorphosis-core = { path = "../../../metamorphosis/crates/core", optional = true }
-metamorphosis-rules = { path = "../../../metamorphosis/crates/rules", optional = true }
-ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", optional = true }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
