@@ -139,7 +139,6 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           TARGET_DIR="target/${{ matrix.target }}/release"
-          BINARY="wdrprobe-desktop"
           if [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ]; then
             ARCH="x86_64"
           else
@@ -147,6 +146,12 @@ jobs:
           fi
           ZIP_NAME="WDRProbe-Desktop-${VERSION}-linux-${ARCH}.zip"
           cd "${TARGET_DIR}"
+          # Tauri renames binary to productName (may contain spaces)
+          BINARY=$(find . -maxdepth 1 -type f -name "WDRProbe*" ! -name "*.sig" | head -1)
+          if [ -z "$BINARY" ]; then
+            BINARY=$(find . -maxdepth 1 -type f -name "wdrprobe*" ! -name "*.sig" | head -1)
+          fi
+          echo "Found binary: $BINARY"
           zip "${ZIP_NAME}" "${BINARY}"
           echo "PORTABLE_ZIP=$(pwd)/${ZIP_NAME}" >> $GITHUB_ENV
 
@@ -158,7 +163,13 @@ jobs:
           $TARGET_DIR = "target/${{ matrix.target }}/release"
           $ZIP_NAME = "WDRProbe-Desktop-${VERSION}-windows-x86_64.zip"
           Set-Location $TARGET_DIR
-          Compress-Archive -Path "wdrprobe-desktop.exe" -DestinationPath $ZIP_NAME
+          # Tauri renames binary to productName (may contain spaces)
+          $BINARY = Get-ChildItem -Filter "WDRProbe*.exe" -File | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
+          if (-not $BINARY) {
+            $BINARY = Get-ChildItem -Filter "wdrprobe*.exe" -File | Select-Object -First 1
+          }
+          Write-Host "Found binary: $($BINARY.Name)"
+          Compress-Archive -Path $BINARY.FullName -DestinationPath $ZIP_NAME
           "PORTABLE_ZIP=$(Get-Location)\${ZIP_NAME}" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Upload portable zip to release
