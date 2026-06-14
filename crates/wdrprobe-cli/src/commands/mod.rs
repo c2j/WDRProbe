@@ -1,7 +1,9 @@
 pub mod analyze;
 pub mod audit;
+#[cfg(feature = "diagnostic-engines")]
 pub mod diagnose;
 pub mod export;
 pub mod import;
 pub mod list;
+#[cfg(feature = "diagnostic-engines")]
 pub mod rewrite;

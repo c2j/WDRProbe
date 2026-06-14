@@ -93,6 +93,7 @@ enum Commands {
     },
 
     /// Diagnose an EXPLAIN plan using ogexplain-core (25 diagnostic rules)
+    #[cfg(feature = "diagnostic-engines")]
     Diagnose {
         /// Path to a file containing the EXPLAIN output text
         #[arg(long)]
@@ -112,6 +113,7 @@ enum Commands {
     },
 
     /// Rewrite SQL using metamorphosis rules (SELECT * expansion, subquery-to-join, etc.)
+    #[cfg(feature = "diagnostic-engines")]
     Rewrite(crate::commands::rewrite::RewriteArgs),
 }
 
@@ -136,12 +138,14 @@ fn main() -> anyhow::Result<()> {
             format,
             output,
         } => commands::export::run(db, report_id, &format, output),
+        #[cfg(feature = "diagnostic-engines")]
         Commands::Diagnose {
             plan_file,
             plan_text,
             sql,
             format,
         } => commands::diagnose::run(plan_file, plan_text, sql, format),
+        #[cfg(feature = "diagnostic-engines")]
         Commands::Rewrite(args) => commands::rewrite::run(args),
     }
 }

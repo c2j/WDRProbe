@@ -19,25 +19,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            name: macOS-arm64
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            name: macOS-x86_64
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            name: Linux-x86_64
-          - platform: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu
-            name: Linux-arm64
-            cross: true
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-            name: Windows-x86_64
-          - platform: windows-latest
-            target: aarch64-pc-windows-msvc
-            name: Windows-arm64
+            name: windows-x86_64
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            name: linux-x86_64
+          - platform: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            name: linux-arm64
+            cross: true
 
     runs-on: ${{ matrix.platform }}
 
@@ -50,11 +41,6 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Cache Rust artifacts
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: './Desktop/src-tauri -> target'
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -62,41 +48,49 @@ jobs:
           cache: npm
           cache-dependency-path: Desktop/package-lock.json
 
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: Desktop
+      # ── Windows: native runner ────────────────────────────────────────
 
-      # ── macOS/Windows: tauri-action ───────────────────────────────────
+      - name: Build (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd Desktop
+          npm ci
+          npm run build
+          cd src-tauri
+          cargo build --release -p wdrprobe-desktop
+          cargo build --release -p wdrprobe-cli
 
-      - name: Build and release Tauri application (macOS/Windows)
-        if: startsWith(matrix.name, 'macOS') || startsWith(matrix.name, 'Windows')
-        uses: tauri-apps/tauri-action@v0
+      - name: Create zip (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: Desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: 'WDRProbe Desktop ${{ github.ref_name }}'
-          releaseDraft: true
-          prerelease: false
-          args: --target ${{ matrix.target }}
+        run: |
+          $VERSION = "${{ github.ref_name }}" -replace '^v', ''
+          $ZIP_NAME = "WDRProbe-${VERSION}-${{ matrix.name }}.zip"
+          $TARGET_DIR = "target\release"
+          $DESKTOP = "$TARGET_DIR\wdrprobe-desktop.exe"
+          $CLI = "$TARGET_DIR\wdrprobe-cli.exe"
+          if (-not (Test-Path $DESKTOP)) { throw "Desktop binary not found: $DESKTOP" }
+          if (-not (Test-Path $CLI)) { throw "CLI binary not found: $CLI" }
+          Compress-Archive -Path $DESKTOP, $CLI -DestinationPath $ZIP_NAME
+          gh release create "${{ github.ref_name }}" --draft --title "WDRProbe ${{ github.ref_name }}" --notes "Release ${{ github.ref_name }}" 2>$null; if ($LASTEXITCODE -ne 0) { Write-Host "Release already exists" }
+          gh release upload "${{ github.ref_name }}" $ZIP_NAME --clobber
 
-      # ── Linux: build inside ubuntu:20.04 Docker for glibc 2.31 ────────
-      # ubuntu-20.04 runners are deprecated. Docker container provides
-      # glibc 2.31 natively — no zigbuild or cross-glibc tricks needed.
+      # ── Linux x86_64: ubuntu:20.04 Docker for glibc 2.31 ─────────────
 
-      - name: Build Linux x86_64 binary (focal container)
-        if: matrix.name == 'Linux-x86_64'
+      - name: Build (Linux x86_64, focal container)
+        if: matrix.name == 'linux-x86_64'
         shell: bash
         run: |
           docker run --rm \
             -v "$PWD:/work" \
             -w /work \
-            -e GITHUB_ACTIONS \
+            -e DEBIAN_FRONTEND=noninteractive \
             ubuntu:20.04 \
             bash -c '
               set -ex
-              export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install -y \
                 build-essential \
@@ -113,34 +107,30 @@ jobs:
               npm ci
               npm run build
               cd src-tauri
-              cargo build --release
+              cargo build --release -p wdrprobe-desktop
+              cargo build --release -p wdrprobe-cli
             '
 
-          find target/release -maxdepth 1 -name "wdrprobe*" -type f 2>/dev/null || echo "No binary found in target/release"
-          echo "LINUX_BINARY=target/release/wdrprobe-desktop" >> $GITHUB_ENV
+      # ── Linux arm64: ubuntu:20.04 Docker, cross-compile ──────────────
 
-      - name: Build Linux arm64 binary (focal container, cross-compile)
-        if: matrix.name == 'Linux-arm64'
+      - name: Build (Linux arm64, focal container cross-compile)
+        if: matrix.name == 'linux-arm64'
         shell: bash
         run: |
           docker run --rm \
             -v "$PWD:/work" \
             -w /work \
-            -e GITHUB_ACTIONS \
+            -e DEBIAN_FRONTEND=noninteractive \
             ubuntu:20.04 \
             bash -c '
               set -ex
-              export DEBIAN_FRONTEND=noninteractive
               apt-get update
-
               dpkg --add-architecture arm64
               echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse" > /etc/apt/sources.list.d/arm64.list
               echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse" >> /etc/apt/sources.list.d/arm64.list
               echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse" >> /etc/apt/sources.list.d/arm64.list
-
               sed -i "/^deb /{ /\[arch=/!s/^deb /deb [arch=amd64] / }" /etc/apt/sources.list
               apt-get update
-
               apt-get install -y \
                 build-essential \
                 gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
@@ -151,8 +141,6 @@ jobs:
               curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
               source ~/.cargo/env
               rustup target add aarch64-unknown-linux-gnu
-
-              mkdir -p ~/.cargo
               printf "[target.aarch64-unknown-linux-gnu]\nlinker = \"aarch64-linux-gnu-gcc\"\n" >> ~/.cargo/config.toml
 
               curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
@@ -165,66 +153,37 @@ jobs:
               npm ci
               npm run build
               cd src-tauri
-              cargo build --release --target aarch64-unknown-linux-gnu
+              cargo build --release --target aarch64-unknown-linux-gnu -p wdrprobe-desktop
+              cargo build --release --target aarch64-unknown-linux-gnu -p wdrprobe-cli
             '
 
-          find target/aarch64-unknown-linux-gnu/release -maxdepth 1 -name "wdrprobe*" -type f 2>/dev/null || echo "No binary found in target/aarch64-unknown-linux-gnu/release"
-          echo "LINUX_BINARY=target/aarch64-unknown-linux-gnu/release/wdrprobe-desktop" >> $GITHUB_ENV
+      # ── Create zip + upload (Linux) ──────────────────────────────────
 
-      - name: Create portable zip (Linux)
-        if: startsWith(matrix.name, 'Linux')
+      - name: Create zip and upload (Linux)
+        if: startsWith(matrix.name, 'linux')
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
-          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ]; then
-            ARCH="x86_64"
-          else
-            ARCH="arm64"
-          fi
-          ZIP_NAME="WDRProbe-Desktop-${VERSION}-linux-${ARCH}.zip"
+          ZIP_NAME="WDRProbe-${VERSION}-${{ matrix.name }}.zip"
 
-          BINARY_PATH="${LINUX_BINARY}"
-          if [ ! -f "$BINARY_PATH" ]; then
-            echo "Expected binary not found at $BINARY_PATH, searching..."
-            BINARY_PATH=$(find target -name "wdrprobe-desktop" -type f 2>/dev/null | head -1)
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            TARGET_DIR="target/aarch64-unknown-linux-gnu/release"
+          else
+            TARGET_DIR="target/release"
           fi
-          if [ -z "$BINARY_PATH" ]; then
-            echo "ERROR: wdrprobe-desktop binary not found anywhere in target/"
-            find target -name "wdrprobe*" -type f 2>/dev/null || echo "target dir empty or missing"
-            exit 1
-          fi
-          echo "Found binary: $BINARY_PATH"
+
+          DESKTOP="${TARGET_DIR}/wdrprobe-desktop"
+          CLI="${TARGET_DIR}/wdrprobe-cli"
+          if [ ! -f "$DESKTOP" ]; then echo "ERROR: $DESKTOP not found"; exit 1; fi
+          if [ ! -f "$CLI" ]; then echo "ERROR: $CLI not found"; exit 1; fi
+
           ZIP_PATH="${RUNNER_TEMP}/${ZIP_NAME}"
-          (cd "$(dirname "$BINARY_PATH")" && zip "$ZIP_PATH" "$(basename "$BINARY_PATH")")
-          echo "PORTABLE_ZIP=$ZIP_PATH" >> $GITHUB_ENV
+          (cd "$TARGET_DIR" && zip "$ZIP_PATH" wdrprobe-desktop wdrprobe-cli)
 
           gh release create "${{ github.ref_name }}" \
-            --draft --title "WDRProbe Desktop ${{ github.ref_name }}" \
+            --draft --title "WDRProbe ${{ github.ref_name }}" \
             --notes "Release ${{ github.ref_name }}" 2>/dev/null || true
-
-      - name: Create portable zip (Windows x86_64)
-        if: startsWith(matrix.name, 'Windows') && matrix.target == 'x86_64-pc-windows-msvc'
-        shell: pwsh
-        run: |
-          $VERSION = "${{ github.ref_name }}" -replace '^v', ''
-          $TARGET_DIR = "target/${{ matrix.target }}/release"
-          $ZIP_NAME = "WDRProbe-Desktop-${VERSION}-windows-x86_64.zip"
-          Set-Location $TARGET_DIR
-          $BINARY = Get-ChildItem -Filter "WDRProbe*.exe" -File | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
-          if (-not $BINARY) {
-            $BINARY = Get-ChildItem -Filter "wdrprobe*.exe" -File | Select-Object -First 1
-          }
-          Write-Host "Found binary: $($BINARY.Name)"
-          Compress-Archive -Path $BINARY.FullName -DestinationPath $ZIP_NAME
-          "PORTABLE_ZIP=$(Get-Location)\${ZIP_NAME}" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Upload portable zip to release
-        if: env.PORTABLE_ZIP != ''
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          gh release upload "${{ github.ref_name }}" "${{ env.PORTABLE_ZIP }}" --clobber
+          gh release upload "${{ github.ref_name }}" "$ZIP_PATH" --clobber
