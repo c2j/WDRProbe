@@ -202,9 +202,9 @@ jobs:
             exit 1
           fi
           echo "Found binary: $BINARY_PATH"
-          cd "${BINARY_PATH%/*}"
-          zip "${ZIP_NAME}" "${BINARY_PATH##*/}"
-          echo "PORTABLE_ZIP=$(pwd)/${ZIP_NAME}" >> $GITHUB_ENV
+          ZIP_PATH="${RUNNER_TEMP}/${ZIP_NAME}"
+          (cd "$(dirname "$BINARY_PATH")" && zip "$ZIP_PATH" "$(basename "$BINARY_PATH")")
+          echo "PORTABLE_ZIP=$ZIP_PATH" >> $GITHUB_ENV
 
           gh release create "${{ github.ref_name }}" \
             --draft --title "WDRProbe Desktop ${{ github.ref_name }}" \
