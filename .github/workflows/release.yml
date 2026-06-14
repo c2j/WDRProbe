@@ -138,7 +138,7 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
-          TARGET_DIR="Desktop/src-tauri/target/${{ matrix.target }}/release"
+          TARGET_DIR="target/${{ matrix.target }}/release"
           BINARY="wdrprobe-desktop"
           if [ "${{ matrix.target }}" = "x86_64-unknown-linux-gnu" ]; then
             ARCH="x86_64"
@@ -155,7 +155,7 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = "${{ github.ref_name }}" -replace '^v', ''
-          $TARGET_DIR = "Desktop/src-tauri/target/${{ matrix.target }}/release"
+          $TARGET_DIR = "target/${{ matrix.target }}/release"
           $ZIP_NAME = "WDRProbe-Desktop-${VERSION}-windows-x86_64.zip"
           Set-Location $TARGET_DIR
           Compress-Archive -Path "wdrprobe-desktop.exe" -DestinationPath $ZIP_NAME
