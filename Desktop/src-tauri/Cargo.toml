@@ -33,9 +33,9 @@ regex = "1.10"
 nom = "7.1"
 memmap2 = "0.9"
 wdrprobe-core = { path = "../../crates/wdrprobe-core" }
-ogexplain-core = { path = "../../../ogexplain-analyzer/crates/ogexplain-core", optional = true }
-metamorphosis-core = { path = "../../../metamorphosis/crates/core", optional = true }
-metamorphosis-rules = { path = "../../../metamorphosis/crates/rules", optional = true }
+ogexplain-core = { git = "https://github.com/c2j/ogexplain-analyzer", optional = true }
+metamorphosis-core = { git = "https://github.com/c2j/metamorphosis", optional = true }
+metamorphosis-rules = { git = "https://github.com/c2j/metamorphosis", optional = true }
 ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", optional = true }
 
 # Async runtime
