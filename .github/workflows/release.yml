@@ -134,11 +134,9 @@ jobs:
               apt-get update
 
               dpkg --add-architecture arm64
-              cat <<REPO | tee /etc/apt/sources.list.d/arm64.list
-              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse
-              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse
-              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse
-              REPO
+              echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse" > /etc/apt/sources.list.d/arm64.list
+              echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse" >> /etc/apt/sources.list.d/arm64.list
+              echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-security main restricted universe multiverse" >> /etc/apt/sources.list.d/arm64.list
 
               sed -i "/^deb /{ /\[arch=/!s/^deb /deb [arch=amd64] / }" /etc/apt/sources.list
               apt-get update
@@ -155,10 +153,7 @@ jobs:
               rustup target add aarch64-unknown-linux-gnu
 
               mkdir -p ~/.cargo
-              cat <<CARGO >> ~/.cargo/config.toml
-              [target.aarch64-unknown-linux-gnu]
-              linker = "aarch64-linux-gnu-gcc"
-              CARGO
+              printf "[target.aarch64-unknown-linux-gnu]\nlinker = \"aarch64-linux-gnu-gcc\"\n" >> ~/.cargo/config.toml
 
               curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
               apt-get install -y nodejs
