@@ -2,6 +2,16 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 import { WdrReportDetail, WdrObjectStat, RiskIssue } from '../types';
 
+// ===== Comparison State (survives navigation away/back) =====
+export interface ComparisonState {
+  baseline: WdrReportDetail | null;
+  targets: WdrReportDetail[];
+  activeTab: 'metrics' | 'wait' | 'sql' | 'settings';
+  sqlSortMode: 'total' | 'avg' | 'diff' | 'calls_diff';
+  selectedCompSqlId: number | null;
+  sqlUserFilter: string; // Initial value set to 'All' in Provider
+}
+
 interface WDRContextState {
   report: WdrReportDetail | null;
   setReport: (report: WdrReportDetail | null) => void;
@@ -24,6 +34,10 @@ interface WDRContextState {
 
   reportHistory: WdrReportDetail[];
   setReportHistory: React.Dispatch<React.SetStateAction<WdrReportDetail[]>>;
+
+  // Comparison state — persisted across navigation
+  comparison: ComparisonState;
+  setComparison: React.Dispatch<React.SetStateAction<ComparisonState>>;
 }
 
 const WDRContext = createContext<WDRContextState | undefined>(undefined);
@@ -42,6 +56,18 @@ export const WDRProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [reportHistory, setReportHistory] = useState<WdrReportDetail[]>([]);
 
+  // Comparison state defaults
+  const defaultComparison: ComparisonState = {
+    baseline: null,
+    targets: [],
+    activeTab: 'metrics',
+    sqlSortMode: 'total',
+    selectedCompSqlId: null,
+    sqlUserFilter: 'All',
+  };
+
+  const [comparison, setComparison] = useState<ComparisonState>(defaultComparison);
+
   return (
     <WDRContext.Provider value={{
       report, setReport,
@@ -52,7 +78,8 @@ export const WDRProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       objTypeFilter, setObjTypeFilter,
       sqlUserFilter, setSqlUserFilter,
       objSchemaFilter, setObjSchemaFilter,
-      reportHistory, setReportHistory
+      reportHistory, setReportHistory,
+      comparison, setComparison
     }}>
       {children}
     </WDRContext.Provider>
