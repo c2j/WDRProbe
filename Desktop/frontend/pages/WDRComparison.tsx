@@ -1,28 +1,43 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { useI18n } from '../context/I18nContext';
+import { useWDRContext } from '../context/WDRContext';
 import { parseWdrHtml } from '../utils/wdrParser';
 import { WdrReportDetail } from '../types';
 import { 
   GitCompare, Upload, X, ArrowRight, ArrowUp, ArrowDown, 
   Minus, FileText, Database, Activity, Clock, Trash2,
-  BarChart2, AlignLeft, AlertCircle, Info, Lock, User
+  BarChart2, AlignLeft, AlertCircle, Info, Lock, User,
+  Sliders, Search
 } from 'lucide-react';
+
+// SortHeader for config comparison table — local component, matches WDRComparison pattern
+const SortHeader = ({ label, sortKey, currentSort, onSort, align = 'left' }: { label: string; sortKey: string; currentSort: { key: string; dir: 'asc' | 'desc' }; onSort: (k: string) => void; align?: 'left' | 'right' | 'center' }) => (
+	<th
+		className={`px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors select-none sticky top-0 z-10 bg-gray-50 border-b border-gray-200 ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'}`}
+		onClick={() => onSort(sortKey)}
+	>
+		<div className={`flex items-center ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'}`}>
+			{label}
+			{currentSort.key === sortKey && (
+				currentSort.dir === 'asc' ? <ArrowUp size={12} className="ml-1 text-blue-600" /> : <ArrowDown size={12} className="ml-1 text-blue-600" />
+			)}
+		</div>
+	</th>
+);
 
 const WDRComparison: React.FC = () => {
   const { t } = useI18n();
-  const [baseline, setBaseline] = useState<WdrReportDetail | null>(null);
-  const [targets, setTargets] = useState<WdrReportDetail[]>([]);
-  const [loading, setLoading] = useState(false);
-  
-  // Page Tabs
-  const [activeTab, setActiveTab] = useState<'metrics' | 'wait' | 'sql'>('metrics');
+  const { comparison, setComparison } = useWDRContext();
+  const { baseline, targets, activeTab, sqlSortMode, selectedCompSqlId, sqlUserFilter } = comparison;
 
-  // State for Top SQL internal sorting
-  // Added 'calls_diff' for frequency variation
-  const [sqlSortMode, setSqlSortMode] = useState<'total' | 'avg' | 'diff' | 'calls_diff'>('total');
-  const [selectedCompSqlId, setSelectedCompSqlId] = useState<number | null>(null);
-  const [sqlUserFilter, setSqlUserFilter] = useState<string>('All');
+  // Loading is transient UI state — stays local
+  const [loading, setLoading] = useState(false);
+
+  // Settings tab UI state (local — transient)
+  const [configSearch, setConfigSearch] = useState('');
+  const [showDiffOnly, setShowDiffOnly] = useState(false);
+  const [configSort, setConfigSort] = useState<{key: string, dir: 'asc'|'desc'}>({ key: 'name', dir: 'asc' });
 
   const baselineInputRef = useRef<HTMLInputElement>(null);
   const targetInputRef = useRef<HTMLInputElement>(null);
@@ -35,9 +50,9 @@ const WDRComparison: React.FC = () => {
         try {
             const parsedData = parseWdrHtml(html);
             if (isBaseline) {
-                setBaseline(parsedData);
-            } else {
-                setTargets(prev => [...prev, parsedData]);
+				setComparison(prev => ({ ...prev, baseline: parsedData }));
+			} else {
+				setComparison(prev => ({ ...prev, targets: [...prev.targets, parsedData] }));
             }
         } catch (err) {
             console.error(err);
@@ -60,9 +75,9 @@ const WDRComparison: React.FC = () => {
       }
   };
 
-  const removeTarget = (idx: number) => {
-      setTargets(prev => prev.filter((_, i) => i !== idx));
-  };
+	const removeTarget = (idx: number) => {
+		setComparison(prev => ({ ...prev, targets: prev.targets.filter((_, i) => i !== idx) }));
+	};
 
   const getWaitEventDescription = (event: string) => {
       const lower = event.toLowerCase();
@@ -202,6 +217,51 @@ const WDRComparison: React.FC = () => {
       return Array.from(new Set(baseline.topSql.map(s => s.userName))).sort();
   }, [baseline]);
 
+  const configComparison = useMemo(() => {
+    if (!baseline) return [];
+
+    const baseConfigs = baseline.configs ?? [];
+    if (baseConfigs.length === 0) return [];
+
+    let items = baseConfigs.map(baseCfg => {
+      const targetCfgs = targets.map(tgt =>
+        (tgt.configs ?? []).find(c => c.name === baseCfg.name)
+      );
+      const hasDiff = targetCfgs.some(c => c && c.value !== baseCfg.value);
+      return {
+        name: baseCfg.name,
+        type: baseCfg.type ?? '-',
+        category: baseCfg.category ?? '-',
+        baselineValue: baseCfg.value,
+        targetValues: targetCfgs.map(c => c?.value ?? '(not set)'),
+        hasDiff,
+      };
+    });
+
+    if (configSearch) {
+      const lower = configSearch.toLowerCase();
+      items = items.filter(c =>
+        c.name.toLowerCase().includes(lower) ||
+        c.baselineValue.toLowerCase().includes(lower)
+      );
+    }
+
+    if (showDiffOnly) {
+      items = items.filter(c => c.hasDiff);
+    }
+
+    items.sort((a, b) => {
+      const aVal = (a as any)[configSort.key] ?? '';
+      const bVal = (b as any)[configSort.key] ?? '';
+      const cmp = typeof aVal === 'string' && typeof bVal === 'string'
+        ? aVal.localeCompare(bVal)
+        : String(aVal).localeCompare(String(bVal));
+      return configSort.dir === 'asc' ? cmp : -cmp;
+    });
+
+    return items;
+  }, [baseline, targets, configSearch, showDiffOnly, configSort]);
+
   return (
     <div className="h-full flex flex-col space-y-4 relative">
         {/* Header Control Panel */}
@@ -213,7 +273,7 @@ const WDRComparison: React.FC = () => {
                  </h2>
                  <div className="flex space-x-2">
                      <button 
-                        onClick={() => { setBaseline(null); setTargets([]); }} 
+                        onClick={() => { setComparison(prev => ({ ...prev, baseline: null, targets: [] })); }} 
                         className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded border border-gray-200"
                      >
                         {t('wdr.comp.reset')}
@@ -231,7 +291,7 @@ const WDRComparison: React.FC = () => {
                                  <div className="font-medium text-gray-800 flex items-center"><Database size={12} className="mr-1"/>{baseline.meta.instanceName}</div>
                                  <div className="text-xs text-gray-500">{baseline.meta.period}</div>
                              </div>
-                             <button onClick={() => setBaseline(null)} className="p-1 hover:bg-red-100 text-gray-400 hover:text-red-500 rounded"><X size={16}/></button>
+                             <button onClick={() => setComparison(prev => ({ ...prev, baseline: null }))} className="p-1 hover:bg-red-100 text-gray-400 hover:text-red-500 rounded"><X size={16}/></button>
                          </div>
                      ) : (
                          <div 
@@ -283,22 +343,28 @@ const WDRComparison: React.FC = () => {
                 {/* Tabs */}
                 <div className="flex border-b border-gray-100 px-4 pt-2 bg-white shrink-0">
                     <button 
-                        onClick={() => setActiveTab('metrics')}
+                        onClick={() => setComparison(prev => ({ ...prev, activeTab: 'metrics' }))}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'metrics' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
                         {t('comp.tab.sys')}
                     </button>
                     <button 
-                        onClick={() => setActiveTab('wait')}
+                        onClick={() => setComparison(prev => ({ ...prev, activeTab: 'wait' }))}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'wait' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
                         {t('comp.tab.wait')}
                     </button>
                     <button 
-                        onClick={() => setActiveTab('sql')}
+                        onClick={() => setComparison(prev => ({ ...prev, activeTab: 'sql' }))}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'sql' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
                         {t('comp.tab.sql')}
+                    </button>
+                    <button 
+                        onClick={() => setComparison(prev => ({ ...prev, activeTab: 'settings' }))}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'settings' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        {t('comp.tab.settings')}
                     </button>
                 </div>
 
@@ -448,7 +514,7 @@ const WDRComparison: React.FC = () => {
                                             <select 
                                                 className="text-xs border border-gray-300 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-purple-500"
                                                 value={sqlUserFilter}
-                                                onChange={(e) => setSqlUserFilter(e.target.value)}
+                                                onChange={(e) => setComparison(prev => ({ ...prev, sqlUserFilter: e.target.value }))}
                                             >
                                                 <option value="All">All Users</option>
                                                 {availableUsers.map(u => (
@@ -460,19 +526,19 @@ const WDRComparison: React.FC = () => {
                                         {/* Sort Tabs */}
                                         <div className="flex space-x-1 bg-gray-200 p-0.5 rounded text-xs font-medium">
                                             <button 
-                                                onClick={() => setSqlSortMode('total')}
+                                                onClick={() => setComparison(prev => ({ ...prev, sqlSortMode: 'total' }))}
                                                 className={`px-3 py-1 rounded transition-all ${sqlSortMode === 'total' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                             >
                                                 {t('wdr.comp.sort.total')}
                                             </button>
                                             <button 
-                                                onClick={() => setSqlSortMode('avg')}
+                                                onClick={() => setComparison(prev => ({ ...prev, sqlSortMode: 'avg' }))}
                                                 className={`px-3 py-1 rounded transition-all ${sqlSortMode === 'avg' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                             >
                                                 {t('wdr.comp.sort.avg')}
                                             </button>
                                             <button 
-                                                onClick={() => setSqlSortMode('diff')}
+                                                onClick={() => setComparison(prev => ({ ...prev, sqlSortMode: 'diff' }))}
                                                 className={`px-3 py-1 rounded transition-all ${sqlSortMode === 'diff' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                                 disabled={targets.length === 0}
                                                 title={targets.length === 0 ? "Requires a target to calculate difference" : ""}
@@ -480,7 +546,7 @@ const WDRComparison: React.FC = () => {
                                                 {t('wdr.comp.sort.diff')}
                                             </button>
                                             <button 
-                                                onClick={() => setSqlSortMode('calls_diff')}
+                                                onClick={() => setComparison(prev => ({ ...prev, sqlSortMode: 'calls_diff' }))}
                                                 className={`px-3 py-1 rounded transition-all ${sqlSortMode === 'calls_diff' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                                 disabled={targets.length === 0}
                                                 title={targets.length === 0 ? "Identify SQL with largest execution frequency change (Calls/Sec)" : ""}
@@ -514,7 +580,7 @@ const WDRComparison: React.FC = () => {
                                                 : (sqlSortMode === 'avg' ? sql.avgTime : sql.totalTime);
 
                                             return (
-                                                <tr key={idx} className="hover:bg-purple-50 cursor-pointer transition-colors" onClick={() => setSelectedCompSqlId(sql.uniqueSqlId)}>
+                                                <tr key={idx} className="hover:bg-purple-50 cursor-pointer transition-colors" onClick={() => setComparison(prev => ({ ...prev, selectedCompSqlId: sql.uniqueSqlId }))}>
                                                     <td className="px-4 py-2 font-mono text-blue-600 text-xs" title={sql.text}>{sql.uniqueSqlId}</td>
                                                     
                                                     {/* Baseline Value Column */}
@@ -554,6 +620,92 @@ const WDRComparison: React.FC = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* 4. Database Parameters Comparison (Settings Tab) */}
+                    {activeTab === 'settings' && (
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
+                            {/* Toolbar */}
+                            <div className="flex justify-between items-center p-2 border-b border-gray-100 shrink-0 bg-white">
+                                <div className="flex items-center space-x-2">
+                                    <Sliders size={16} className="text-gray-500" />
+                                    <span className="text-sm font-medium text-gray-700">{t('comp.tab.settings')}</span>
+                                    <label className="flex items-center space-x-1 ml-4 text-xs text-gray-500 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={showDiffOnly}
+                                            onChange={(e) => setShowDiffOnly(e.target.checked)}
+                                            className="rounded border-gray-300"
+                                        />
+                                        <span>{t('wdr.comp.showDiffOnly')}</span>
+                                    </label>
+                                </div>
+                                <div className="relative">
+                                    <Search size={14} className="absolute left-3 top-2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder={t('wdr.comp.configParam')}
+                                        className="pl-8 pr-3 py-1 text-sm border border-gray-300 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                        value={configSearch}
+                                        onChange={(e) => setConfigSearch(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Config Table */}
+                            <div className="flex-1 overflow-auto">
+                                <table className="w-full text-sm text-left whitespace-nowrap">
+                                    <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10 shadow-sm">
+                                        <tr>
+                                            <SortHeader label={t('wdr.comp.configParam')} sortKey="name" currentSort={configSort} onSort={(k) => setConfigSort(prev => ({ key: k, dir: prev.key === k && prev.dir === 'asc' ? 'desc' : 'asc' }))} />
+                                            <th className="px-4 py-3 font-medium text-right bg-blue-50/30 sticky top-0 border-b border-gray-200">{t('wdr.comp.baseline')}</th>
+                                            {targets.map((_, i) => (
+                                                <th key={i} className="px-4 py-3 font-medium text-right bg-green-50/30 sticky top-0 border-b border-gray-200">{t('wdr.comp.target')} #{i + 1}</th>
+                                            ))}
+                                            <SortHeader label={t('wdr.comp.configType')} sortKey="type" currentSort={configSort} onSort={(k) => setConfigSort(prev => ({ key: k, dir: prev.key === k && prev.dir === 'asc' ? 'desc' : 'asc' }))} />
+                                            <SortHeader label={t('wdr.comp.configCategory')} sortKey="category" currentSort={configSort} onSort={(k) => setConfigSort(prev => ({ key: k, dir: prev.key === k && prev.dir === 'asc' ? 'desc' : 'asc' }))} />
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {configComparison.map((cfg, idx) => (
+                                            <tr
+                                                key={idx}
+                                                className={`transition-colors ${
+                                                    cfg.hasDiff
+                                                        ? 'bg-yellow-50 hover:bg-yellow-100'
+                                                        : 'hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <td className="px-4 py-2 font-medium text-gray-700">{cfg.name}</td>
+                                                <td className="px-4 py-2 text-right font-mono bg-blue-50/10 text-blue-700">{cfg.baselineValue}</td>
+                                                {cfg.targetValues.map((tv, tIdx) => {
+                                                    const isDiff = tv !== cfg.baselineValue;
+                                                    return (
+                                                        <td
+                                                            key={tIdx}
+                                                            className={`px-4 py-2 text-right font-mono bg-green-50/10 ${
+                                                                isDiff ? 'text-red-600 font-bold bg-red-50/30' : 'text-gray-700'
+                                                            }`}
+                                                        >
+                                                            {tv}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td className="px-4 py-2 text-gray-500">{cfg.type}</td>
+                                                <td className="px-4 py-2 text-gray-500">{cfg.category}</td>
+                                            </tr>
+                                        ))}
+                                        {configComparison.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4 + targets.length} className="p-8 text-center text-gray-400 italic">
+                                                    {showDiffOnly ? t('wdr.comp.noDiff') : t('wdr.comp.emptySettings')}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         ) : (
@@ -575,7 +727,7 @@ const WDRComparison: React.FC = () => {
                             </h3>
                             <span className="text-xs text-gray-500 mt-1">{t('wdr.comp.user')}: {selectedSqlDetails.baseSql.userName}</span>
                         </div>
-                        <button onClick={() => setSelectedCompSqlId(null)} className="p-1 hover:bg-gray-200 rounded-full transition-colors text-gray-500">
+                        <button onClick={() => setComparison(prev => ({ ...prev, selectedCompSqlId: null }))} className="p-1 hover:bg-gray-200 rounded-full transition-colors text-gray-500">
                             <X size={20} />
                         </button>
                     </div>

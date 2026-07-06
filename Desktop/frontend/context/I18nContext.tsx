@@ -95,6 +95,7 @@ const translations: Record<Language, Record<string, string>> = {
     'comp.tab.wait': 'Wait Events',
     'comp.tab.obj': 'Object Stats',
     'comp.tab.sys': 'System Metrics',
+    'comp.tab.settings': 'Database Parameters',
     'comp.fingerprint': 'Fingerprint',
     'comp.r1': 'Report 1',
     'comp.r2': 'Report 2',
@@ -170,6 +171,12 @@ const translations: Record<Language, Record<string, string>> = {
     'wdr.comp.metric.lread': 'Logical Reads',
     'wdr.comp.metric.cps': 'Exec Freq (Calls/s)',
     'wdr.comp.user': 'User',
+    'wdr.comp.showDiffOnly': 'Show differences only',
+    'wdr.comp.configParam': 'Parameter',
+    'wdr.comp.configType': 'Type',
+    'wdr.comp.configCategory': 'Category',
+    'wdr.comp.emptySettings': 'No database configuration found.',
+    'wdr.comp.noDiff': 'All parameters match — no differences found.',
 
     // Thresholds
     'thr.categories': 'Categories',
@@ -580,6 +587,7 @@ const translations: Record<Language, Record<string, string>> = {
     'comp.tab.wait': '等待事件',
     'comp.tab.obj': '对象统计',
     'comp.tab.sys': '系统指标',
+    'comp.tab.settings': '数据库参数',
     'comp.fingerprint': '指纹',
     'comp.r1': '报告 1',
     'comp.r2': '报告 2',
@@ -655,6 +663,12 @@ const translations: Record<Language, Record<string, string>> = {
     'wdr.comp.metric.lread': '逻辑读',
     'wdr.comp.metric.cps': '执行频率 (次/秒)',
     'wdr.comp.user': '用户',
+    'wdr.comp.showDiffOnly': '仅显示差异项',
+    'wdr.comp.configParam': '参数名',
+    'wdr.comp.configType': '类型',
+    'wdr.comp.configCategory': '分类',
+    'wdr.comp.emptySettings': '未找到数据库配置。',
+    'wdr.comp.noDiff': '所有参数一致，未发现差异。',
 
     // Thresholds
     'thr.categories': '分类',
