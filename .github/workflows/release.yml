@@ -187,3 +187,26 @@ jobs:
             --draft --title "WDRProbe ${{ github.ref_name }}" \
             --notes "Release ${{ github.ref_name }}" 2>/dev/null || true
           gh release upload "${{ github.ref_name }}" "$ZIP_PATH" --clobber
+
+  publish:
+    name: Publish Release
+    needs: [build]
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "${{ github.ref_name }}" \
+            --draft=false \
+            --latest \
+            --notes "WDRProbe ${{ github.ref_name }}
+
+Release binaries for Windows (x86_64), Linux (x86_64), and Linux (arm64).
+
+## What's Changed
+
+See the full changelog at https://github.com/c2j/WDRProbe/compare/v0.1.1...${{ github.ref_name }}"
