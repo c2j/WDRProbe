@@ -4,6 +4,124 @@
 
 WDRProbe is a **Tauri v1 desktop app** for analyzing GaussDB/OpenGauss WDR (Workload Diagnosis Report) files. The frontend (React/TS) is already built; the Rust backend parses HTML WDR reports, stores data in SQLite, and serves it via Tauri IPC commands.
 
+## TDD 工作流（Red → Green → Refactor）
+
+本仓库后端是 Rust（Tauri），前端是 React/TS。核心可测逻辑都在 Rust 侧（parser、database、commands）；前端目前无测试框架。改代码前先确认改的是 Rust 后端、TS 前端，还是 Tauri IPC 边界。
+
+### 先读再改
+1. 确认改动落在哪个 crate（`crates/wdrprobe-*` 或 `Desktop/src-tauri`）。
+2. 根目录的 `wdr_parser_main.rs`、`test_*.rs`、`cache_io_test/` 是独立实验，不是 App 构建的一部分——TDD 门禁针对 `Desktop/src-tauri/`。
+3. 先跑与改动相关的最小测试；提交前再跑 Rust 门禁。
+4. 完成一个循环后按「完成标准与汇报」汇报。
+
+### Never / Ask first / Always
+
+**Never（不必请示，直接禁止）**
+- 删除、注释、跳过已有测试：`#[ignore]`、注释 `#[test]`、断言改成 `is_ok()`/`unwrap()`
+- 修改人类已有测试的断言来迁就实现
+- 先提交无测试的业务行为，再「回头补」
+- 写永真测试：无断言、只检查 `is_some()`、只 verify 调用次数不查参数与状态
+- 用全量端到端测试覆盖本可单测完成的改动
+- 提交半成品；把探索草稿、临时脚本、调试 `dbg!`/`println!` 留在主代码
+
+**Ask first**
+- 改人类已有测试（含断言、fixture）
+- 新增运行时依赖、`unsafe`、新 crate、新外部服务
+- 为不可测代码做超出当前改动路径的重构
+- 关闭 clippy lint、新增 `#[allow]`
+
+**Always**
+- 改遗留路径前：先写特征测试，锁定当前可观察行为
+- 新行为：先有会失败的行为断言，再写最少实现
+- 难以测试时：先造接缝，再写测试
+- 测试名描述行为：`should_reject_invalid_wdr_html`
+- 现有测试因你的改动失败：修实现，不修测试（除非人类明确要求）
+
+测试权限：
+
+| 测试来源 | 权限 |
+|---|---|
+| 人类已有测试 | 只读 |
+| 本任务新建测试 | 可改，直到该行为稳定 |
+| 过时或环境偶发失败 | 只报告，不擅自跳过 |
+
+### 工作流
+
+**Red** — 写生产行为之前先写测试；必须能被收集且必须失败（断言失败或缺失 API 编译失败都算合法 Red）。修改已有功能先写特征测试。一次只加一个行为的测试。
+
+**Green** — 只写让当前失败测试通过的最少代码。禁止删掉/改掉失败测试、一次引入多个未验证变更、用更宽断言/`unwrap()` 换绿。
+
+**Refactor** — 相关测试全绿后才重构；重构后立刻跑同一组测试；范围限于当前 crate。
+
+**探索 vs 实现** — 需求或方案不清可写草稿验证；草稿不得合并；方案确定后必须走 TDD 重写。
+
+### 遗留代码与接缝
+
+**特征测试** — 用 `example/` 里的 WDR HTML 样例做 fixture，锁定 parser 的现有输出（opengauss_v1 与 v2 两种格式都要覆盖）。
+
+**接缝（优先顺序，靠后的更差）**
+1. trait + 泛型/`impl Trait`，测试用假类型（`--features test` 提供 mockall/rstest）
+2. 用类型去掉非法状态（enum/newtype）
+3. 时钟、ID、文件系统、DB 连接做成可注入依赖；测试用内存 SQLite / tempfile
+4. `unsafe` 不是接缝。新增 `unsafe` 必须 Ask first + `SAFETY` 注释
+
+只给即将修改的代码路径补测试，不要一次性「补全覆盖率」。
+
+### 测试分层
+
+| 层级 | 位置 | 测什么 |
+|---|---|---|
+| 单元 | `src` 内 `#[cfg(test)] mod tests` | parser/模型/工具不变量 |
+| 集成 | `Desktop/src-tauri/tests/*.rs` | 命令契约、跨模块行为 |
+| 测试专用依赖 | `--features test` | mockall/rstest/criterion 假实现与参数化 |
+
+不要把本该测公共契约的内容塞进 `#[cfg(test)]` 去读私有字段。
+
+### 前端（TS）说明
+
+- 前端目前**没有**测试框架。改动 `Desktop/frontend/` 的纯 TS 逻辑（如 `apiService.ts` 的 mock fallback、类型映射）不强制 TDD，但复杂纯函数建议抽成可导出函数以便后续补测试；不得在未加测试的情况下声称「已测试」。
+- Tauri IPC 契约（`#[tauri::command]` 的入参/返回 `Result<T, String>`）改动 = Rust 集成测试要动，前端 `invoke()` 封装与类型也要同步更新。
+
+### Rust Never 补遗
+- 库代码用 `unwrap`/`expect`/`panic!` 做控制流
+- 无必要 `unsafe`；有则必须 `SAFETY` 注释
+- 一次性 `cargo update` 整个 lockfile
+- 用 `#[allow(...)]` 静默应修复的 lint
+
+### 命令
+
+```bash
+# 单测（从 Desktop/src-tauri/）
+cargo test --test <name>
+
+# 全量 Rust 测试（含 mockall/rstest/criterion 测试依赖）
+cargo test --features test
+
+# 提交前门禁
+cargo fmt --all -- --check
+cargo clippy --all --all-targets
+cargo test --features test
+```
+
+> 注意：命令在 `Desktop/src-tauri/` 目录执行（App 的 lib crate）。根目录 `cargo test` 测的是独立实验脚本，不是 App。
+
+### 完成标准与汇报
+
+提交或交还人类前，确认：
+- [ ] 新行为有失败→通过的测试
+- [ ] 修改的遗留路径有特征测试（v1/v2 两种 WDR 格式）
+- [ ] 未删除、跳过、改写人类已有测试
+- [ ] 已跑 fmt + clippy + test 门禁
+- [ ] 没有把探索草稿、根目录实验脚本、`example/` 之外的无主产物带上
+
+每个 TDD 循环汇报：1) 测试了什么行为 2) 最小实现改了哪些文件 3) 是否重构、边界 4) 实际命令与结果。
+
+### 质量判断（自我检查）
+- 这条测试在实现写错时会失败吗？
+- 我是否在测行为，而不是私有实现细节？
+- 我是否用 skip、更宽断言、unwrap 换绿？
+- 命令是否来自本文件，而不是我编的？
+
 ## Repository Layout
 
 ```
