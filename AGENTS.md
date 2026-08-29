@@ -4,136 +4,137 @@
 
 WDRProbe is a **Tauri v1 desktop app** for analyzing GaussDB/OpenGauss WDR (Workload Diagnosis Report) files. The frontend (React/TS) is already built; the Rust backend parses HTML WDR reports, stores data in SQLite, and serves it via Tauri IPC commands.
 
-## TDD 工作流（Red → Green → Refactor）
+## TDD Workflow (Red → Green → Refactor)
 
-> This section is written in Chinese to stay identical in wording to the shared TDD policy used across the Heptadecagon repos. The rest of this file remains in English.
+The backend is Rust (Tauri), and the frontend is React/TS. Core testable logic resides on the Rust side (parser, database, commands); the frontend currently lacks a test framework. Before modifying code, confirm whether you are changing the Rust backend, TS frontend, or the Tauri IPC boundary.
 
-本仓库后端是 Rust（Tauri），前端是 React/TS。核心可测逻辑都在 Rust 侧（parser、database、commands）；前端目前无测试框架。改代码前先确认改的是 Rust 后端、TS 前端，还是 Tauri IPC 边界。
-
-### 先读再改
-1. 确认改动落在哪个 crate（`crates/wdrprobe-*` 或 `Desktop/src-tauri`）。
-2. 根目录的 `wdr_parser_main.rs`、`test_*.rs`、`cache_io_test/` 是独立实验，不是 App 构建的一部分——TDD 门禁针对 `Desktop/src-tauri/`。
-3. 先跑与改动相关的最小测试；提交前再跑 Rust 门禁。
-4. 完成一个循环后按「完成标准与汇报」汇报。
+### Read Before Modifying
+1. Confirm which crate the changes fall into (`crates/wdrprobe-*` or `Desktop/src-tauri`).
+2. `wdr_parser_main.rs`, `test_*.rs`, and `cache_io_test/` in the root directory are independent experiments and not part of the App build—TDD gates target `Desktop/src-tauri/`.
+3. Run the smallest test relevant to the change first; run the Rust gates before submission.
+4. Report according to "Completion Criteria and Reporting" after finishing each cycle.
 
 ### Never / Ask first / Always
 
-**Never（不必请示，直接禁止）**
-- 删除、注释、跳过已有测试：`#[ignore]`、注释 `#[test]`、断言改成 `is_ok()`/`unwrap()`
-- 修改人类已有测试的断言来迁就实现
-- 先提交无测试的业务行为，再「回头补」
-- 写永真测试：无断言、只检查 `is_some()`、只 verify 调用次数不查参数与状态
-- 用全量端到端测试覆盖本可单测完成的改动
-- 提交半成品；把探索草稿、临时脚本、调试 `dbg!`/`println!` 留在主代码
+**Never (Prohibited without exception)**
+- Delete, comment out, or skip existing tests: `#[ignore]`, commenting out `#[test]`, or changing assertions to `is_ok()`/`unwrap()`
+- Modify assertions in existing human-written tests to accommodate an implementation
+- Submit business behaviour without tests first, then "backfill later"
+- Write always-passing tests: no assertions, only checking `is_some()`, or only verifying call counts without checking parameters and state
+- Use full end-to-end tests to cover changes that could be completed with unit tests
+- Submit half-finished work; leave exploratory drafts, temporary scripts, or debugging `dbg!`/`println!` in the main code
 
 **Ask first**
-- 改人类已有测试（含断言、fixture）
-- 新增运行时依赖、`unsafe`、新 crate、新外部服务
-- 为不可测代码做超出当前改动路径的重构
-- 关闭 clippy lint、新增 `#[allow]`
+- Modifying existing human-written tests (including assertions and fixtures)
+- Adding new runtime dependencies, `unsafe`, new crates, or new external services
+- Refactoring untestable code beyond the current change path
+- Disabling clippy lints or adding new `#[allow(...)]`
 
 **Always**
-- 改遗留路径前：先写特征测试，锁定当前可观察行为
-- 新行为：先有会失败的行为断言，再写最少实现
-- 难以测试时：先造接缝，再写测试
-- 测试名描述行为：`should_reject_invalid_wdr_html`
-- 现有测试因你的改动失败：修实现，不修测试（除非人类明确要求）
+- Before modifying legacy paths: write characterization tests first to lock down current observable behaviour
+- New behaviour: have a failing behaviour assertion first, then write the minimum implementation
+- When hard to test: create a seam first, then write the test
+- Test names must describe behaviour: `should_reject_invalid_wdr_html`
+- Existing tests fail due to your changes: fix the implementation, do not fix the test (unless explicitly requested by a human)
 
-测试权限：
+Test ownership:
 
-| 测试来源 | 权限 |
+| Test Source | Ownership |
 |---|---|
-| 人类已有测试 | 只读 |
-| 本任务新建测试 | 可改，直到该行为稳定 |
-| 过时或环境偶发失败 | 只报告，不擅自跳过 |
+| Human-written tests | Read-only |
+| New tests for this task | Modifiable until the behaviour is stable |
+| Outdated or flaky environmental failures | Report only, do not skip without permission |
 
-### 工作流
+### Workflow
 
-**Red** — 写生产行为之前先写测试；必须能被收集且必须失败（断言失败或缺失 API 编译失败都算合法 Red）。修改已有功能先写特征测试。一次只加一个行为的测试。
+**Red** — Write tests before writing production behaviour; they must be collectible and must fail (either assertion failure or compilation failure due to missing APIs are valid Red states). Write characterization tests before modifying existing functionality. Add exactly one behaviour per cycle.
 
-**Green** — 只写让当前失败测试通过的最少代码。禁止删掉/改掉失败测试、一次引入多个未验证变更、用更宽断言/`unwrap()` 换绿。
+**Green** — Write only the minimum code required to make the current failing test pass. Do not delete or modify failing tests, introduce multiple unverified changes at once, or trade green for broader assertions/`unwrap()`.
 
-**Refactor** — 相关测试全绿后才重构；重构后立刻跑同一组测试；范围限于当前改动路径。
+**Refactor** — Refactor only after all relevant tests are green; run the same set of tests immediately after refactoring; scope is limited to the current change path.
 
-**探索 vs 实现** — 需求或方案不清可写草稿验证；草稿不得合并；方案确定后必须走 TDD 重写。
+**Exploration vs Implementation** — Write drafts to verify requirements or solutions if unclear; drafts must not be merged; once the solution is determined, it must be rewritten using TDD.
 
-### 遗留代码与接缝
+### Legacy Code and Seams
 
-**特征测试** — 用 `example/` 里的 WDR HTML 样例做 fixture，锁定 parser 的现有输出（opengauss_v1 与 v2 两种格式都要覆盖）。
+**Characterization Tests** — Use WDR HTML samples in `example/` as fixtures to lock down existing parser output (must cover both opengauss_v1 and v2 formats).
 
-**接缝（优先顺序，靠后的更差）**
-1. trait + 泛型/`impl Trait`，测试用假类型（`--features test` 提供 mockall/rstest）
-2. 用类型去掉非法状态（enum/newtype）
-3. 时钟、ID、文件系统、DB 连接做成可注入依赖；测试用内存 SQLite / tempfile
-4. `unsafe` 不是接缝。新增 `unsafe` 必须 Ask first + `SAFETY` 注释
+**Seams (Priority order, later is worse)**
+1. trait + generics/`impl Trait`, use fake types for testing (`--features test` provides mockall/rstest)
+2. Use types to eliminate illegal states (enum/newtype)
+3. Make clocks, IDs, file systems, and DB connections injectable dependencies; use in-memory SQLite / `tempfile` for testing
+4. `unsafe` is not a seam. New `unsafe` must be Ask first + `SAFETY` comment
 
-只给即将修改的代码路径补测试，不要一次性「补全覆盖率」。
+Only add tests to the code paths about to be modified; do not "complete coverage" all at once.
 
-### 测试分层
+### Test Layering
 
-| 层级 | 位置 | 测什么 |
+| Level | Location | What to test |
 |---|---|---|
-| 单元 | `src` 内 `#[cfg(test)] mod tests` | parser/模型/工具不变量 |
-| 集成 | `Desktop/src-tauri/tests/*.rs` | 命令契约、跨模块行为 |
-| 测试专用依赖 | `--features test` | mockall/rstest/criterion 假实现与参数化 |
+| Unit | `#[cfg(test)] mod tests` inside `src` | parser/model/utility invariants |
+| Integration | `Desktop/src-tauri/tests/*.rs` | Command contracts, cross-module behaviour |
+| Test-only dependencies | `--features test` | mockall/rstest/criterion fake implementations and parameterization |
 
-不要把本该测公共契约的内容塞进 `#[cfg(test)]` 去读私有字段。
+Do not stuff content that should test public contracts into `#[cfg(test)]` to read private fields.
 
-### 前端（TS）说明
+### Frontend (TS) Notes
 
-- 前端目前**没有**测试框架。改动 `Desktop/frontend/` 的纯 TS 逻辑（如 `apiService.ts` 的 mock fallback、类型映射）不强制 TDD，但复杂纯函数建议抽成可导出函数以便后续补测试；不得在未加测试的情况下声称「已测试」。
-- Tauri IPC 契约（`#[tauri::command]` 的入参/返回 `Result<T, String>`）改动 = Rust 集成测试要动，前端 `invoke()` 封装与类型也要同步更新。
+- The frontend currently **has no** test framework. TDD is not mandatory for changes to pure TS logic in `Desktop/frontend/` (e.g., mock fallback in `apiService.ts`, type mapping), but extracting complex pure functions is recommended for future testing; do not claim "tested" without adding tests.
+- Changes to Tauri IPC contracts (input parameters/return `Result<T, String>` of `#[tauri::command]`) mean Rust integration tests must change, and frontend `invoke()` wrappers and types must be updated synchronously.
 
-### Rust Never 补遗
-- 库代码用 `unwrap`/`expect`/`panic!` 做控制流
-- 无必要 `unsafe`；有则必须 `SAFETY` 注释
-- 一次性 `cargo update` 整个 lockfile
-- 用 `#[allow(...)]` 静默应修复的 lint
+### Rust Never Addendum (every item below is forbidden)
+- Use `unwrap`/`expect`/`panic!` for control flow in library code
+- Unnecessary `unsafe`; if present, must have `SAFETY` comment
+- `cargo update` the entire lockfile at once
+- Use `#[allow(...)]` to silence lints that should be fixed
 
-### 命令
+### Commands
 
 ```bash
-# 单测（从 Desktop/src-tauri/）
+# Unit tests (from Desktop/src-tauri/)
 cargo test --test <name>
 
-# 全量 Rust 测试（含 mockall/rstest/criterion 测试依赖）
+# Full Rust tests (including mockall/rstest/criterion test dependencies)
 cargo test --features test
 
-# 提交前门禁（本地唯一门禁——CI 跑不起来，见下）
+# Pre-submission gates (see the CI coverage table below for what CI does NOT check)
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test --features test
 ```
 
-> 注意：命令在 `Desktop/src-tauri/` 目录执行（App 的 lib crate），`pr-checks.yml` 的 `working-directory` 也是这个。根目录 `cargo test` 测的是独立实验脚本，不是 App。
+> Note: Run these commands from `Desktop/src-tauri/` (the App's lib crate) — `pr-checks.yml` uses the same `working-directory`. `cargo test` at the repo root tests the standalone experiment scripts, not the App.
+
+What CI actually covers (`pr-checks.yml`, on `ubuntu-22.04` since PR #4):
+
+| Job | CI runs | CI does NOT run |
+|---|---|---|
+| `Rust Checks` | `cargo clippy --all-targets -- -D warnings`, `cargo test` | `cargo fmt --all -- --check`, `cargo test --features test` |
+| `Frontend Type Check` | `npx tsc --noEmit` | any frontend test — there is no test framework |
+
+> `cargo fmt --all -- --check` and `cargo test --features test` are **local-only gates**. CI will never catch a violation in either, so run them yourself and paste the results in your report.
 >
-> 🔴 **`pr-checks.yml` 实际上从来没有跑起来过，本地门禁是唯一防线。**
-> 两个 job（`Rust Checks` / `Frontend Type Check`）都写死 `runs-on: ubuntu-20.04`，
-> 而 GitHub 已下线该 runner 镜像——所有 `PR Checks` run 一律停在 `queued` 直到被 `cancelled`，
-> 历史上（可回溯至 2026-07-06 的 `main`）**没有一次 completed**。
-> 因此：**不要用「CI 绿」当验收依据**，必须本地把上面 4 条全部跑完并在汇报里贴出结果。
-> 修复方向是把 `runs-on` 改成 `ubuntu-22.04`（Tauri v1 依赖 `libwebkit2gtk-4.0-dev`，
-> Ubuntu 24.04 已改为 4.1，直接换 `ubuntu-latest` 会因缺包而失败）——属独立的 CI 修复任务。
+> 🔴 **CI is currently red on `main`.** `crates/wdrprobe-core` has **58 pre-existing clippy violations** under `-D warnings` (`get_first` x10, `redundant_closure` x8, `manual_pattern_char_comparison` x7, `needless_borrow` x5, `manual_strip` x5, and others). These predate CI ever running: `pr-checks.yml` was pinned to the retired `ubuntu-20.04` runner, so every run sat in `queued` until `cancelled` and **not one run completed** between 2026-07-06 and PR #4. Establish the baseline on unmodified `main` first, then separate your own failures from it. Do not add `#[allow]` to silence these (that is Ask first), and do not treat a red baseline as licence to skip the gate.
 >
-> 前端只有 `Frontend Type Check`（`npm run build` 类型检查），**没有测试 job**——改 TS 不要声称「已测试」。
+> The frontend has only a type-check job and **no test job** — never claim TS changes are "tested".
 
-### 完成标准与汇报
+### Completion Criteria and Reporting
 
-提交或交还人类前，确认：
-- [ ] 新行为有失败→通过的测试
-- [ ] 修改的遗留路径有特征测试（v1/v2 两种 WDR 格式）
-- [ ] 未删除、跳过、改写人类已有测试
-- [ ] 已跑 fmt + clippy + test 门禁
-- [ ] 没有把探索草稿、根目录实验脚本、`example/` 之外的无主产物带上
+Before submitting or handing back to a human, confirm:
+- [ ] New behaviour has failing → passing tests
+- [ ] Modified legacy paths have characterization tests (both v1/v2 WDR formats)
+- [ ] Human-written tests have not been deleted, skipped, or rewritten
+- [ ] fmt + clippy + test gates have been run
+- [ ] No exploratory drafts, root directory experimental scripts, or orphaned artifacts outside `example/` are included
 
-每个 TDD 循环汇报：1) 测试了什么行为 2) 最小实现改了哪些文件 3) 是否重构、边界 4) 实际命令与结果。
+Report for each TDD cycle: 1) What behaviour was tested 2) Which files were changed for the minimum implementation 3) Whether refactoring occurred and boundaries 4) Actual commands and results.
 
-### 质量判断（自我检查）
-- 这条测试在实现写错时会失败吗？
-- 我是否在测行为，而不是私有实现细节？
-- 我是否用 skip、更宽断言、unwrap 换绿？
-- 命令是否来自本文件，而不是我编的？
+### Quality Judgment (Self-check)
+- Will this test fail if the implementation is written incorrectly?
+- Am I testing behaviour rather than private implementation details?
+- Am I trading green for skips, broader assertions, or unwrap?
+- Do the commands come from this file rather than being made up?
 
 ## Repository Layout
 
