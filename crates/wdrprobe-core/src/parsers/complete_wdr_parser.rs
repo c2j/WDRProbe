@@ -20,10 +20,10 @@ pub fn parse_complete_wdr_report(
         file_path
     );
 
-    let mut file = File::open(file_path).map_err(|e| WdrProbeError::Io(e))?;
+    let mut file = File::open(file_path).map_err(WdrProbeError::Io)?;
     let mut html_content = String::new();
     file.read_to_string(&mut html_content)
-        .map_err(|e| WdrProbeError::Io(e))?;
+        .map_err(WdrProbeError::Io)?;
 
     let document = Html::parse_document(&html_content);
 
@@ -123,7 +123,7 @@ fn parse_efficiency_metrics(document: &Html, report_id: i64) -> EfficiencyMetric
                 .collect();
 
             if cells.len() >= 2 {
-                let metric_name = cells.get(0).unwrap_or(&"".to_string()).clone();
+                let metric_name = cells.first().unwrap_or(&"".to_string()).clone();
                 let metric_value = cells
                     .get(1)
                     .unwrap_or(&"0".to_string())
@@ -189,7 +189,7 @@ fn parse_load_profile(document: &Html, report_id: i64) -> LoadProfile {
                 .collect();
 
             if cells.len() >= 2 {
-                let stat_name = cells.get(0).unwrap_or(&"".to_string()).clone();
+                let stat_name = cells.first().unwrap_or(&"".to_string()).clone();
                 let value_us = cells
                     .get(1)
                     .unwrap_or(&"0".to_string())
@@ -222,7 +222,7 @@ fn parse_load_profile(document: &Html, report_id: i64) -> LoadProfile {
                 .collect();
 
             if cells.len() >= 3 {
-                let metric = cells.get(0).unwrap_or(&"".to_string()).clone();
+                let metric = cells.first().unwrap_or(&"".to_string()).clone();
                 let per_second = cells
                     .get(1)
                     .unwrap_or(&"0".to_string())
@@ -363,7 +363,7 @@ fn parse_top_sqls(document: &Html, report_id: i64) -> Vec<TopSql> {
                     continue;
                 }
 
-                match parse_sql_row_from_table(&row, total_sqls as i32 + 1) {
+                match parse_sql_row_from_table(&row, total_sqls + 1) {
                     Ok(mut sql) => {
                         sql.report_id = report_id; // Set the report_id
                         println!(
@@ -422,7 +422,7 @@ fn parse_sql_row_from_table(
             )));
         }
 
-        let unique_sql_id = cells.get(0).unwrap_or(&"0".to_string()).clone();
+        let unique_sql_id = cells.first().unwrap_or(&"0".to_string()).clone();
         let sql_text = cells.get(3).unwrap_or(&"".to_string()).clone();
 
         Ok(TopSql {
@@ -470,7 +470,7 @@ fn parse_sql_row_from_table(
                 .unwrap_or(default)
         };
 
-        let unique_sql_id = cells.get(0).unwrap_or(&"0".to_string()).clone();
+        let unique_sql_id = cells.first().unwrap_or(&"0".to_string()).clone();
 
         // Extract SQL text from the last column (index 24 for openGauss WDR format)
         // Columns: 0=Unique SQL Id, 1=User Name, 2=Total Elapse Time, 3=CPU Time,

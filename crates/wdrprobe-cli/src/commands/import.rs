@@ -1,17 +1,19 @@
 use anyhow::Context;
-use wdrprobe_core::database::{get_connection, init_database, initialize_schema, DatabaseOperations};
-use wdrprobe_core::database::schema::{initialize_default_thresholds, initialize_sample_audit_issues};
+use wdrprobe_core::database::schema::{
+    initialize_default_thresholds, initialize_sample_audit_issues,
+};
+use wdrprobe_core::database::{
+    get_connection, init_database, initialize_schema, DatabaseOperations,
+};
 use wdrprobe_core::parsers::complete_wdr_parser::parse_complete_wdr_report;
 
 /// Run the import command: parse a WDR HTML file and store it in the database
 pub fn run(file: String, db: String, instance: String) -> anyhow::Result<()> {
     // 1. Initialize database
-    let pool = init_database(&db)
-        .map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
-    let conn = get_connection(&pool)
-        .map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
-    initialize_schema(&conn)
-        .map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
+    let pool = init_database(&db).map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
+    let conn =
+        get_connection(&pool).map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
+    initialize_schema(&conn).map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
     initialize_default_thresholds(&conn)
         .map_err(|e| anyhow::anyhow!("Failed to initialize thresholds: {}", e))?;
     initialize_sample_audit_issues(&conn)
@@ -53,8 +55,7 @@ pub fn run(file: String, db: String, instance: String) -> anyhow::Result<()> {
     // 7. Store top SQLs
     for mut s in parsed.top_sql.clone() {
         s.report_id = report_id;
-        pool.create_top_sql(&s)
-            .context("Failed to store top SQL")?;
+        pool.create_top_sql(&s).context("Failed to store top SQL")?;
     }
 
     // 8. Store cache I/O stats

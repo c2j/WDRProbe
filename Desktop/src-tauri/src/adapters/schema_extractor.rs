@@ -10,10 +10,7 @@ pub fn parse_schema_json(json: &str) -> Result<SchemaMap, String> {
 
 /// Extract schema from WDR report data
 /// Uses object_stats table to get table names, and best-effort column extraction from top SQLs
-pub fn extract_schema_from_wdr(
-    pool: &DatabasePool,
-    report_id: i64,
-) -> Result<SchemaMap, String> {
+pub fn extract_schema_from_wdr(pool: &DatabasePool, report_id: i64) -> Result<SchemaMap, String> {
     let mut schema: SchemaMap = SchemaMap::new();
 
     // Get object stats for table names

@@ -36,10 +36,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
             "Low" => "LOW",
             _ => "INFO",
         };
-        let line = format!(
-            "{} {}  {}",
-            prefix, severity_color, issue.title
-        );
+        let line = format!("{} {}  {}", prefix, severity_color, issue.title);
         display_lines.push(line);
 
         // Show description on next line (indented)
@@ -55,7 +52,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
                 display_lines.push(format!("   SQL: {}", truncated));
             }
             display_lines.push(format!("   Recommendation: {}", issue.recommendation));
-            display_lines.push(format!("   Status: {:?} | Detected: {}", issue.status, issue.detected_at));
+            display_lines.push(format!(
+                "   Status: {:?} | Detected: {}",
+                issue.status, issue.detected_at
+            ));
             display_lines.push(String::new());
         }
     }

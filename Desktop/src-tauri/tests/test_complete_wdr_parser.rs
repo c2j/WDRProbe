@@ -99,7 +99,7 @@ mod tests {
                 assert!(!report.report.instance_name.is_empty(), "实例名不应为空");
                 assert!(!report.database_stats.is_empty(), "应该有数据库统计");
                 assert!(!report.top_sql.is_empty(), "应该有SQL统计");
-                assert!(report.top_sql.len() > 0, "至少应该有一条SQL");
+                assert!(!report.top_sql.is_empty(), "至少应该有一条SQL");
 
                 println!("=== 所有验证通过! ===");
             }

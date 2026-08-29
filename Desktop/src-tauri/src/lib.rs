@@ -13,10 +13,13 @@ pub use wdrprobe_core::progress;
 pub use wdrprobe_core::utils;
 
 // Convenience re-exports (matching the old lib.rs pattern)
-pub use wdrprobe_core::database::{init_database, initialize_schema, DatabaseOperations, DatabasePool};
+pub use wdrprobe_core::database::{
+    init_database, initialize_schema, DatabaseOperations, DatabasePool,
+};
 pub use wdrprobe_core::models::*;
 pub use wdrprobe_core::progress::*;
-pub use wdrprobe_core::utils::*;
+pub use wdrprobe_core::utils::error::*;
+pub use wdrprobe_core::utils::gaussdb::*;
 
 // Result type for the library
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;

@@ -3,10 +3,10 @@
 // Per Constitution Principle IV - DTO format with audit trail
 // Per Constitution Principle IX - All changes logged to audit_logs
 
+use tauri::State;
 use wdrprobe_core::database::DatabaseOperations;
 use wdrprobe_core::database::DatabasePool;
 use wdrprobe_core::models::threshold::*;
-use tauri::State;
 
 /// Get all threshold configurations, optionally filtered by category
 #[tauri::command(rename_all = "camelCase")]
@@ -404,7 +404,7 @@ pub async fn get_threshold_history(
                 old_value: old_val.unwrap_or(0.0),
                 new_value: new_val.unwrap_or(0.0),
                 changed_by: log.user_id.unwrap_or_else(|| "Unknown".to_string()),
-                change_reason: log.details.unwrap_or_else(|| String::new()),
+                change_reason: log.details.unwrap_or_else(String::new),
                 timestamp: log.timestamp,
             }
         })

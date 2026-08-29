@@ -1085,7 +1085,7 @@ impl DatabaseOperations for DatabasePool {
         }
 
         // Get hot issues (simplified)
-        let _hot_issues = vec![
+        let _hot_issues = [
             crate::models::dashboard::HotIssue {
                 title: "High CPU Usage".to_string(),
                 count: 5,
@@ -1703,8 +1703,8 @@ impl DatabaseOperations for DatabasePool {
                 change_percentages,
             };
 
-            Ok(serde_json::to_value(metric)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?)
+            serde_json::to_value(metric)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
         })?;
 
         let mut metrics = Vec::new();

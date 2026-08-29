@@ -11,9 +11,11 @@ use commands::execution_plan;
 use commands::export;
 use commands::reports;
 use commands::threshold;
-use wdrprobe_core::database::{init_database, initialize_schema};
-use wdrprobe_core::database::schema::{initialize_default_thresholds, initialize_sample_audit_issues};
 use tauri::Manager;
+use wdrprobe_core::database::schema::{
+    initialize_default_thresholds, initialize_sample_audit_issues,
+};
+use wdrprobe_core::database::{init_database, initialize_schema};
 
 #[cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
@@ -23,29 +25,27 @@ use tauri::Manager;
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 fn main() {
-    let builder = tauri::Builder::default()
-        .setup(|app| {
-            let app_data_dir = app
-                .path_resolver()
-                .app_data_dir()
-                .expect("Failed to resolve app data directory");
+    let builder = tauri::Builder::default().setup(|app| {
+        let app_data_dir = app
+            .path_resolver()
+            .app_data_dir()
+            .expect("Failed to resolve app data directory");
 
-            std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data directory");
+        std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data directory");
 
-            let db_path = app_data_dir.join("wdrprobe.db");
+        let db_path = app_data_dir.join("wdrprobe.db");
 
-            let pool =
-                init_database(db_path.to_str().unwrap()).expect("Failed to initialize database");
+        let pool = init_database(db_path.to_str().unwrap()).expect("Failed to initialize database");
 
-            let conn = pool.get().expect("Failed to get database connection");
-            initialize_schema(&conn).expect("Failed to initialize schema");
-            initialize_default_thresholds(&conn).expect("Failed to initialize default thresholds");
-            initialize_sample_audit_issues(&conn).expect("Failed to initialize sample audit issues");
+        let conn = pool.get().expect("Failed to get database connection");
+        initialize_schema(&conn).expect("Failed to initialize schema");
+        initialize_default_thresholds(&conn).expect("Failed to initialize default thresholds");
+        initialize_sample_audit_issues(&conn).expect("Failed to initialize sample audit issues");
 
-            app.manage(pool);
+        app.manage(pool);
 
-            Ok(())
-        });
+        Ok(())
+    });
 
     #[cfg(feature = "diagnostic-engines")]
     let builder = builder.invoke_handler(tauri::generate_handler![

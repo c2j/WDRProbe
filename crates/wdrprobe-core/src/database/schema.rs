@@ -1,7 +1,7 @@
 // Database schema initialization
 // Creates all necessary tables and indexes for application
 
-use rusqlite::{Connection, Result, params};
+use rusqlite::{params, Connection, Result};
 
 /// Initialize the database schema
 pub fn initialize_schema(conn: &Connection) -> Result<()> {
@@ -285,14 +285,12 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
 /// Initialize sample SQL audit issues for demo purposes
 pub fn initialize_sample_audit_issues(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     // Check if audit issues already exist
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM sql_audit_issues",
-        [],
-        |row| row.get(0)
-    )?;
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM sql_audit_issues", [], |row| {
+        row.get(0)
+    })?;
 
     if count > 0 {
-        return Ok(());  // Already has data
+        return Ok(()); // Already has data
     }
 
     // Insert sample audit issues (simplified to avoid SQL syntax issues)
@@ -374,14 +372,12 @@ pub fn initialize_sample_audit_issues(conn: &rusqlite::Connection) -> Result<(),
 /// Should be called after schema initialization to provide baseline thresholds
 pub fn initialize_default_thresholds(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     // Check if thresholds already exist
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM threshold_configs",
-        [],
-        |row| row.get(0)
-    )?;
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM threshold_configs", [], |row| {
+        row.get(0)
+    })?;
 
     if count > 0 {
-        return Ok(());  // Already initialized
+        return Ok(()); // Already initialized
     }
 
     // Insert default SQL thresholds

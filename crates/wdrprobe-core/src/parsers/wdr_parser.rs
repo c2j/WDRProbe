@@ -10,7 +10,7 @@ use std::path::Path;
 
 /// Parse WDR report from HTML file
 pub fn parse_wdr_html(file_path: &str) -> Result<WdrReport, WdrProbeError> {
-    let file = File::open(file_path).map_err(|e| WdrProbeError::Io(e))?;
+    let file = File::open(file_path).map_err(WdrProbeError::Io)?;
 
     let reader = BufReader::new(file);
     let html_content: String = reader.lines().collect::<Result<Vec<_>, _>>()?.join("\n");
@@ -46,7 +46,7 @@ pub fn parse_wdr_html(file_path: &str) -> Result<WdrReport, WdrProbeError> {
 
 /// Parse WDR report from raw text file
 pub fn parse_wdr_raw(file_path: &str) -> Result<WdrReport, WdrProbeError> {
-    let file = File::open(file_path).map_err(|e| WdrProbeError::Io(e))?;
+    let file = File::open(file_path).map_err(WdrProbeError::Io)?;
 
     let reader = BufReader::new(file);
 
@@ -56,7 +56,7 @@ pub fn parse_wdr_raw(file_path: &str) -> Result<WdrReport, WdrProbeError> {
     let mut snapshot_end = String::new();
 
     for line in reader.lines() {
-        let line = line.map_err(|e| WdrProbeError::Io(e))?;
+        let line = line.map_err(WdrProbeError::Io)?;
 
         // Parse instance name
         if let Some(idx) = line.find("Instance Name:") {
@@ -112,7 +112,7 @@ pub fn parse_wdr_raw(file_path: &str) -> Result<WdrReport, WdrProbeError> {
 
 /// Parse Top SQL statements from WDR report
 pub fn parse_top_sqls(file_path: &str) -> Result<Vec<TopSql>, WdrProbeError> {
-    let file = File::open(file_path).map_err(|e| WdrProbeError::Io(e))?;
+    let file = File::open(file_path).map_err(WdrProbeError::Io)?;
 
     let reader = BufReader::new(file);
     let html_content: String = reader.lines().collect::<Result<Vec<_>, _>>()?.join("\n");
@@ -156,7 +156,7 @@ pub fn parse_top_sqls(file_path: &str) -> Result<Vec<TopSql>, WdrProbeError> {
                     continue;
                 }
 
-                match parse_sql_row_from_table(&row, total_sqls as i32 + 1) {
+                match parse_sql_row_from_table(&row, total_sqls + 1) {
                     Ok(sql) => {
                         println!(
                             "WDR Parser: Parsed SQL {}: {}",
@@ -220,7 +220,7 @@ fn parse_sql_row_from_table(row: &scraper::ElementRef, rank: i32) -> Result<TopS
             )));
         }
 
-        let unique_sql_id = cells.get(0).unwrap_or(&"0".to_string()).clone();
+        let unique_sql_id = cells.first().unwrap_or(&"0".to_string()).clone();
         let sql_text = cells.get(3).unwrap_or(&"".to_string()).clone();
 
         Ok(TopSql {
@@ -275,7 +275,7 @@ fn parse_sql_row_from_table(row: &scraper::ElementRef, rank: i32) -> Result<TopS
         // ... other metrics ...
         // Last column might be SQL Text in some tables
 
-        let unique_sql_id = cells.get(0).unwrap_or(&"0".to_string()).clone();
+        let unique_sql_id = cells.first().unwrap_or(&"0".to_string()).clone();
 
         // Try to find SQL text - it might be in the last column or we might need to look for it
         let sql_text = if cells.len() > 25 {
@@ -378,74 +378,16 @@ fn extract_snapshot_period(document: &Html) -> Result<(String, String), WdrProbe
     ))
 }
 
-/// Parse SQL row from HTML element
-fn parse_sql_row(row: &scraper::ElementRef, rank: i32) -> Result<TopSql, WdrProbeError> {
-    let cells: Vec<String> = row
-        .select(&Selector::parse("td").unwrap())
-        .map(|cell| cell.text().collect::<Vec<_>>().join(" ").trim().to_string())
-        .collect();
-
-    if cells.len() < 5 {
-        return Err(WdrProbeError::Parse("Invalid SQL row format".to_string()));
-    }
-
-    Ok(TopSql {
-        id: 0,
-        report_id: 0, // Will be set when associated with report
-        sql_id: Some(cells.get(0).unwrap_or(&"0".to_string()).clone()),
-        sql_text: cells.get(1).unwrap_or(&"".to_string()).clone(),
-        executions: cells
-            .get(2)
-            .unwrap_or(&"0".to_string())
-            .parse()
-            .unwrap_or(0),
-        total_elapsed_time: cells
-            .get(3)
-            .unwrap_or(&"0".to_string())
-            .parse()
-            .unwrap_or(0.0),
-        cpu_time: cells
-            .get(4)
-            .unwrap_or(&"0".to_string())
-            .parse()
-            .unwrap_or(0.0),
-        io_time: cells
-            .get(5)
-            .unwrap_or(&"0".to_string())
-            .parse()
-            .unwrap_or(0.0),
-        buffer_gets: cells
-            .get(6)
-            .unwrap_or(&"0".to_string())
-            .parse()
-            .unwrap_or(0),
-        disk_reads: cells
-            .get(7)
-            .unwrap_or(&"0".to_string())
-            .parse()
-            .unwrap_or(0),
-        rows_processed: cells
-            .get(8)
-            .unwrap_or(&"0".to_string())
-            .parse()
-            .unwrap_or(0),
-        first_load_time: chrono::Utc::now().to_rfc3339(),
-        last_load_time: chrono::Utc::now().to_rfc3339(),
-        is_hot_sql: true,
-        rank_by_time: Some(rank),
-    })
-}
-
 /// Parse Top SQLs from raw text format
 fn parse_top_sqls_raw(file_path: &str) -> Result<Vec<TopSql>, WdrProbeError> {
-    let file = File::open(file_path).map_err(|e| WdrProbeError::Io(e))?;
+    let file = File::open(file_path).map_err(WdrProbeError::Io)?;
 
     let reader = BufReader::new(file);
     let mut sqls = Vec::new();
     let mut rank = 1;
 
     for line in reader.lines() {
-        let line = line.map_err(|e| WdrProbeError::Io(e))?;
+        let line = line.map_err(WdrProbeError::Io)?;
 
         // Simple heuristic: lines with "SELECT" or "UPDATE" that are not comments
         if (line.starts_with("SELECT") || line.starts_with("UPDATE") || line.starts_with("INSERT"))

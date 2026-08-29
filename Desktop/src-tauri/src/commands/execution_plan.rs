@@ -7,7 +7,6 @@ use wdrprobe_core::database::{DatabaseOperations, DatabasePool};
 use wdrprobe_core::models::execution_plan::*;
 use wdrprobe_core::parsers::sql_parser::*;
 
-
 /// Get hot SQL queries from WDR reports
 #[tauri::command]
 pub async fn get_wdr_hot_sqls(
@@ -21,7 +20,7 @@ pub async fn get_wdr_hot_sqls(
         report_id, limit
     );
 
-    let effective_limit = limit.unwrap_or(50).min(100) as i32;
+    let effective_limit = limit.unwrap_or(50).min(100);
 
     // Get hot SQLs from database
     let top_sqls = pool
@@ -240,21 +239,22 @@ pub async fn analyze_execution_plan_command(
         });
     }
 
-        // Generate recommendations
-        let mut recommendations = Vec::new();
-        for suggestion in &response.suggestions {
-            recommendations.push(PlanRecommendation {
-                priority: if suggestion.contains("index") || suggestion.contains("Index") {
-                    RecommendationPriority::High
-                } else {
-                    RecommendationPriority::Medium
-                },
-                action: "Optimize".to_string(),
-                description: suggestion.clone(),
-                sql_example: None,
-                estimated_benefit: "Variable - depends on data distribution and query patterns".to_string(),
-            });
-        }
+    // Generate recommendations
+    let mut recommendations = Vec::new();
+    for suggestion in &response.suggestions {
+        recommendations.push(PlanRecommendation {
+            priority: if suggestion.contains("index") || suggestion.contains("Index") {
+                RecommendationPriority::High
+            } else {
+                RecommendationPriority::Medium
+            },
+            action: "Optimize".to_string(),
+            description: suggestion.clone(),
+            sql_example: None,
+            estimated_benefit: "Variable - depends on data distribution and query patterns"
+                .to_string(),
+        });
+    }
 
     // Determine optimization potential - be more conservative and honest about estimates
     let optimization_potential = if score >= 80 {
@@ -262,14 +262,15 @@ pub async fn analyze_execution_plan_command(
     } else if score >= 50 {
         "Medium - Some optimization opportunities possible".to_string()
     } else {
-        "High - Multiple optimization areas identified (requires execution plan for accuracy)".to_string()
+        "High - Multiple optimization areas identified (requires execution plan for accuracy)"
+            .to_string()
     };
 
     // Be much more conservative with improvement estimates
     let estimated_improvement = if score < 50 {
-        Some(15 + (80 - score) / 3) // Reduced from 30+ to 15+ 
+        Some(15 + (80 - score) / 3) // Reduced from 30+ to 15+
     } else if score < 80 {
-        Some(5 + (80 - score) / 4)  // Reduced from 10+ to 5+
+        Some(5 + (80 - score) / 4) // Reduced from 10+ to 5+
     } else {
         None
     };
@@ -299,7 +300,7 @@ pub async fn save_execution_plan(
     // Determine effective SQL ID
     let effective_sql_id = if let Some(sid) = sql_id {
         sid
-    } else if let Some(_) = sql_text {
+    } else if sql_text.is_some() {
         // For user-provided SQL, we'd need to create a TopSql entry first
         // For now, return an error
         return Err("User-provided SQL with plan saving not yet implemented".to_string());
@@ -449,7 +450,7 @@ pub async fn generate_optimization_sql(
     if plan.plan_tree.operation == "SQL Analysis" {
         warnings.push("Optimization SQL generation requires actual execution plan data. These suggestions are based on SQL text analysis only.".to_string());
         warnings.push("For accurate index and statistics recommendations, provide actual EXPLAIN output or execution plan data.".to_string());
-        
+
         // Return empty SQL statements with warnings instead of generating potentially incorrect SQL
         return Ok(OptimizationSql {
             sql_statements,
@@ -493,8 +494,11 @@ pub async fn generate_optimization_sql(
 
 /// Analyze SQL text without execution plan to provide basic optimization suggestions
 pub fn analyze_sql_without_plan(sql: &str) -> Result<ExecutionPlanResponse, String> {
-    println!("Analyzing SQL text without execution plan: {}", sql.chars().take(50).collect::<String>());
-    
+    println!(
+        "Analyzing SQL text without execution plan: {}",
+        sql.chars().take(50).collect::<String>()
+    );
+
     let mut warnings = Vec::new();
     let mut suggestions = Vec::new();
     let mut plan_metadata = PlanMetadata {
@@ -504,7 +508,7 @@ pub fn analyze_sql_without_plan(sql: &str) -> Result<ExecutionPlanResponse, Stri
         node_count: 0,
         optimization_warnings: 0,
         estimated_time_ms: 0.0, // No timing data available
-        gaussdb_format: false,    // This is not a real GaussDB format plan
+        gaussdb_format: false,  // This is not a real GaussDB format plan
         has_actual_stats: false,
     };
 
@@ -516,7 +520,7 @@ pub fn analyze_sql_without_plan(sql: &str) -> Result<ExecutionPlanResponse, Stri
     if sql_clean.starts_with("SELECT") {
         analyze_select_statement(sql, &mut warnings, &mut suggestions);
     }
-    // Analyze INSERT statements  
+    // Analyze INSERT statements
     else if sql_clean.starts_with("INSERT") {
         analyze_insert_statement(sql, &mut warnings, &mut suggestions);
     }
@@ -546,7 +550,7 @@ pub fn analyze_sql_without_plan(sql: &str) -> Result<ExecutionPlanResponse, Stri
                 "=== SQL TEXT ANALYSIS ONLY ===".to_string(),
                 "No execution plan data available".to_string(),
                 "Analysis based on SQL text patterns only".to_string(),
-                "For accurate optimization, provide EXPLAIN output".to_string()
+                "For accurate optimization, provide EXPLAIN output".to_string(),
             ]),
             filter: None,
             buffers: None,
@@ -558,11 +562,11 @@ pub fn analyze_sql_without_plan(sql: &str) -> Result<ExecutionPlanResponse, Stri
         warnings: vec![
             "WARNING: Analysis performed without execution plan data".to_string(),
             "Suggestions are based on SQL text patterns only".to_string(),
-            "For accurate index/cost analysis, provide actual execution plan".to_string()
+            "For accurate index/cost analysis, provide actual execution plan".to_string(),
         ],
         suggestions: vec![
             "Upload EXPLAIN (FORMAT JSON) output for detailed analysis".to_string(),
-            "Provide execution plan data for accurate optimization recommendations".to_string()
+            "Provide execution plan data for accurate optimization recommendations".to_string(),
         ],
     };
 
@@ -581,7 +585,9 @@ fn analyze_select_statement(sql: &str, warnings: &mut Vec<String>, suggestions: 
 
     // Check for SELECT *
     if sql_upper.contains("SELECT *") {
-        warnings.push("SELECT * retrieves all columns which may be inefficient for large tables".to_string());
+        warnings.push(
+            "SELECT * retrieves all columns which may be inefficient for large tables".to_string(),
+        );
         suggestions.push("Specify only required columns instead of SELECT *".to_string());
     }
 
@@ -634,8 +640,11 @@ fn analyze_select_statement(sql: &str, warnings: &mut Vec<String>, suggestions: 
     }
 
     // Add specific warnings about SQL analysis limitations
-    warnings.push("SQL TEXT ANALYSIS: Cannot determine actual table sizes or data distribution".to_string());
-    warnings.push("Index recommendations require schema knowledge and execution plan data".to_string());
+    warnings.push(
+        "SQL TEXT ANALYSIS: Cannot determine actual table sizes or data distribution".to_string(),
+    );
+    warnings
+        .push("Index recommendations require schema knowledge and execution plan data".to_string());
 }
 
 /// Analyze INSERT statements for optimization opportunities
@@ -646,11 +655,16 @@ fn analyze_insert_statement(sql: &str, warnings: &mut Vec<String>, suggestions: 
     // Look for INSERT INTO table_name VALUES pattern (no column list)
     if sql_upper.contains("INSERT INTO") && sql_upper.contains("VALUES") {
         // Find position of INSERT INTO and VALUES
-        if let (Some(insert_pos), Some(values_pos)) = (sql_upper.find("INSERT INTO"), sql_upper.find("VALUES")) {
+        if let (Some(insert_pos), Some(values_pos)) =
+            (sql_upper.find("INSERT INTO"), sql_upper.find("VALUES"))
+        {
             // Check if there's no opening parenthesis between INSERT INTO and VALUES
             let between_insert_and_values = &sql_upper[insert_pos + 11..values_pos];
             if !between_insert_and_values.contains('(') {
-                warnings.push("INSERT without column specification may cause issues with schema changes".to_string());
+                warnings.push(
+                    "INSERT without column specification may cause issues with schema changes"
+                        .to_string(),
+                );
                 suggestions.push("Explicitly specify column names in INSERT statement".to_string());
             }
         }
@@ -694,7 +708,9 @@ fn analyze_delete_statement(sql: &str, warnings: &mut Vec<String>, suggestions: 
     // Check for large DELETE operations
     if sql_upper.contains("WHERE") && !sql_upper.contains("LIMIT") {
         warnings.push("Large DELETE operations may lock tables for extended periods".to_string());
-        suggestions.push("Consider batching DELETE operations or using TRUNCATE for full table".to_string());
+        suggestions.push(
+            "Consider batching DELETE operations or using TRUNCATE for full table".to_string(),
+        );
     }
 }
 
@@ -714,8 +730,6 @@ fn calculate_plan_metadata(node: &ExecutionPlanNode) -> (f64, u32, u32) {
 
     (total_cost, node_count, max_depth + 1)
 }
-
-
 
 fn classify_issue(warning: &str) -> IssueType {
     if warning.contains("scan") || warning.contains("Scan") {
@@ -741,7 +755,8 @@ fn analyze_for_indexes(
     // Skip analysis if this is SQL text analysis only
     if node.operation == "SQL_TEXT_ANALYSIS_ONLY" {
         explanations.push("Index analysis requires actual execution plan data".to_string());
-        explanations.push("SQL text analysis cannot determine optimal index strategies".to_string());
+        explanations
+            .push("SQL text analysis cannot determine optimal index strategies".to_string());
         return;
     }
 
@@ -765,7 +780,10 @@ fn analyze_for_indexes(
                         "Sequential scan on {} with filter '{}' - consider index on {}",
                         table, filter, column
                     ));
-                    explanations.push("Note: Verify column selectivity and query frequency before creating index".to_string());
+                    explanations.push(
+                        "Note: Verify column selectivity and query frequency before creating index"
+                            .to_string(),
+                    );
                 } else {
                     explanations.push(format!(
                         "Sequential scan on {} with complex filter '{}' - manual analysis needed",
@@ -803,7 +821,8 @@ fn analyze_for_statistics(
             "Table {} may benefit from updated statistics for better query planning",
             table
         ));
-        explanations.push("Note: Run ANALYZE after significant data changes or periodically".to_string());
+        explanations
+            .push("Note: Run ANALYZE after significant data changes or periodically".to_string());
     }
 
     for child in &node.children {
@@ -818,20 +837,29 @@ fn analyze_for_rewrite(
 ) {
     // Skip analysis if this is SQL text analysis only
     if node.operation == "SQL_TEXT_ANALYSIS_ONLY" {
-        explanations.push("Query rewrite suggestions require actual execution plan data".to_string());
+        explanations
+            .push("Query rewrite suggestions require actual execution plan data".to_string());
         return;
     }
 
     if node.operation.contains("Nested Loop") && node.cost > 1000.0 {
-        sql_statements.push("-- Consider: Rewrite with explicit JOIN syntax and appropriate indexes".to_string());
-        explanations.push("High-cost nested loop join detected - consider hash join or better indexes".to_string());
-        explanations.push("Note: Requires analysis of data distribution and available indexes".to_string());
+        sql_statements.push(
+            "-- Consider: Rewrite with explicit JOIN syntax and appropriate indexes".to_string(),
+        );
+        explanations.push(
+            "High-cost nested loop join detected - consider hash join or better indexes"
+                .to_string(),
+        );
+        explanations
+            .push("Note: Requires analysis of data distribution and available indexes".to_string());
     }
 
     if node.operation.contains("Sort") && node.rows > 10000 {
         sql_statements.push("-- Consider: Add covering index to avoid sorting".to_string());
-        explanations.push("Large sort operation detected - consider index on ORDER BY columns".to_string());
-        explanations.push("Note: Index overhead vs. sort cost trade-off needs evaluation".to_string());
+        explanations
+            .push("Large sort operation detected - consider index on ORDER BY columns".to_string());
+        explanations
+            .push("Note: Index overhead vs. sort cost trade-off needs evaluation".to_string());
     }
 
     for child in &node.children {
@@ -970,8 +998,7 @@ pub enum OptimizationConfidence {
 pub async fn parse_explain_with_ogexplain(
     plan_text: String,
 ) -> Result<wdrprobe_core::models::execution_plan::ExecutionPlanNode, String> {
-    let plan = ogexplain_core::parse(&plan_text)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let plan = ogexplain_core::parse(&plan_text).map_err(|e| format!("Parse error: {}", e))?;
     Ok(ogexplain_adapter::convert_plan_node(&plan.root))
 }
 
@@ -981,8 +1008,7 @@ pub async fn parse_explain_with_ogexplain(
 pub async fn diagnose_explain_plan(
     plan_text: String,
 ) -> Result<ogexplain_adapter::DiagnosticReportResponse, String> {
-    let plan = ogexplain_core::parse(&plan_text)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let plan = ogexplain_core::parse(&plan_text).map_err(|e| format!("Parse error: {}", e))?;
     let report = ogexplain_core::analyze(&plan);
     Ok(ogexplain_adapter::convert_diagnostic_report(&report, &plan))
 }
@@ -993,8 +1019,7 @@ pub async fn diagnose_explain_plan(
 pub async fn get_explain_heatmap(
     plan_text: String,
 ) -> Result<Option<ogexplain_adapter::HeatmapData>, String> {
-    let plan = ogexplain_core::parse(&plan_text)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let plan = ogexplain_core::parse(&plan_text).map_err(|e| format!("Parse error: {}", e))?;
     Ok(ogexplain_core::heatmap(&plan).map(|h| ogexplain_adapter::convert_heatmap(&h)))
 }
 
@@ -1004,8 +1029,7 @@ pub async fn get_explain_heatmap(
 pub async fn get_explain_waterfall(
     plan_text: String,
 ) -> Result<Option<ogexplain_adapter::WaterfallData>, String> {
-    let plan = ogexplain_core::parse(&plan_text)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let plan = ogexplain_core::parse(&plan_text).map_err(|e| format!("Parse error: {}", e))?;
     Ok(ogexplain_core::waterfall(&plan).map(|w| ogexplain_adapter::convert_waterfall(&w)))
 }
 
@@ -1015,30 +1039,180 @@ pub async fn get_explain_waterfall(
 pub async fn list_diagnostic_rules() -> Result<Vec<ogexplain_adapter::RuleInfo>, String> {
     // Static rule catalog - matches ogexplain-core's 25 rules
     Ok(vec![
-        ogexplain_adapter::RuleInfo { rule_id: "SCAN-001".into(), category: "Scan".into(), title: "Large table full scan".into(), description: "Seq Scan on table exceeding row threshold".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "SCAN-004".into(), category: "Scan".into(), title: "Filter without index".into(), description: "Filter removing many rows without index support".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "JOIN-001".into(), category: "Join".into(), title: "Nested loop on large tables".into(), description: "Nested loop join with high row counts".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "JOIN-002".into(), category: "Join".into(), title: "Hash join spill to disk".into(), description: "Hash join exceeding work_mem".into(), severity: "Critical".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "MEM-001".into(), category: "Memory".into(), title: "Sort spill to disk".into(), description: "External merge sort including VectorSort".into(), severity: "Critical".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "MEM-004".into(), category: "Memory".into(), title: "High peak memory".into(), description: "Highest-memory node in subtree".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "SORT-003".into(), category: "Sort".into(), title: "Duplicate sort".into(), description: "Recursive subtree duplicate Sort Keys".into(), severity: "Info".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "NET-001".into(), category: "Network".into(), title: "Broadcast large data".into(), description: "Broadcasting excessive rows".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "EST-001".into(), category: "Estimation".into(), title: "Severe row estimation error".into(), description: "Actual rows far exceed/fall below estimate".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "EST-004".into(), category: "Estimation".into(), title: "Nested loop from underestimation".into(), description: "Nested Loop caused by row underestimation".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "PUSH-001".into(), category: "Pushdown".into(), title: "Query not pushed down".into(), description: "FQS failure with signal accumulation".into(), severity: "Critical".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "PUSH-002".into(), category: "Pushdown".into(), title: "Multi-layer streaming".into(), description: "Streaming layer chain detected".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "TYPE-001".into(), category: "Type".into(), title: "Implicit type coercion".into(), description: "TypeMismatch with fix suggestions".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "TYPE-004".into(), category: "Type".into(), title: "LIKE with leading wildcard".into(), description: "Leading wildcard prevents index usage".into(), severity: "Info".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "VEC-001".into(), category: "Vectorization".into(), title: "Mixed row/vector engines".into(), description: "Row↔Vector adapter boundaries".into(), severity: "Info".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "GEN-001".into(), category: "General".into(), title: "Plan too deep".into(), description: "Plan depth exceeds threshold".into(), severity: "Info".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "SUBQ-001".into(), category: "Subquery".into(), title: "Subquery not pulled up".into(), description: "SubqueryScan nodes detected".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "REW-001".into(), category: "Subquery".into(), title: "Large IN list not rewritten".into(), description: "IN lists with many values".into(), severity: "Info".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "SUBQ-006".into(), category: "Subquery".into(), title: "Correlated subquery self-update".into(), description: "Self-referencing correlated subqueries".into(), severity: "Critical".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "AGG-001".into(), category: "Aggregate".into(), title: "Group aggregate should be hash".into(), description: "Suggest Hash Aggregate for large GROUP BY".into(), severity: "Info".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "AGG-002".into(), category: "Aggregate".into(), title: "Hash aggregate spill to disk".into(), description: "Hash Aggregate exceeding work_mem".into(), severity: "Critical".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "SKEW-001".into(), category: "Distribution".into(), title: "Data skew detected".into(), description: "Uneven row distribution across datanodes".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "DIST-001".into(), category: "Distribution".into(), title: "Distribution column mismatch".into(), description: "Join columns don't match distribution columns".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "STATS-001".into(), category: "Statistics".into(), title: "Stats not collected".into(), description: "Tables with missing or stale statistics".into(), severity: "Warning".into() },
-        ogexplain_adapter::RuleInfo { rule_id: "PART-001".into(), category: "Partition".into(), title: "Partition pruning failure".into(), description: "Full partition scan when pruning should help".into(), severity: "Warning".into() },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "SCAN-001".into(),
+            category: "Scan".into(),
+            title: "Large table full scan".into(),
+            description: "Seq Scan on table exceeding row threshold".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "SCAN-004".into(),
+            category: "Scan".into(),
+            title: "Filter without index".into(),
+            description: "Filter removing many rows without index support".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "JOIN-001".into(),
+            category: "Join".into(),
+            title: "Nested loop on large tables".into(),
+            description: "Nested loop join with high row counts".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "JOIN-002".into(),
+            category: "Join".into(),
+            title: "Hash join spill to disk".into(),
+            description: "Hash join exceeding work_mem".into(),
+            severity: "Critical".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "MEM-001".into(),
+            category: "Memory".into(),
+            title: "Sort spill to disk".into(),
+            description: "External merge sort including VectorSort".into(),
+            severity: "Critical".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "MEM-004".into(),
+            category: "Memory".into(),
+            title: "High peak memory".into(),
+            description: "Highest-memory node in subtree".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "SORT-003".into(),
+            category: "Sort".into(),
+            title: "Duplicate sort".into(),
+            description: "Recursive subtree duplicate Sort Keys".into(),
+            severity: "Info".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "NET-001".into(),
+            category: "Network".into(),
+            title: "Broadcast large data".into(),
+            description: "Broadcasting excessive rows".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "EST-001".into(),
+            category: "Estimation".into(),
+            title: "Severe row estimation error".into(),
+            description: "Actual rows far exceed/fall below estimate".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "EST-004".into(),
+            category: "Estimation".into(),
+            title: "Nested loop from underestimation".into(),
+            description: "Nested Loop caused by row underestimation".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "PUSH-001".into(),
+            category: "Pushdown".into(),
+            title: "Query not pushed down".into(),
+            description: "FQS failure with signal accumulation".into(),
+            severity: "Critical".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "PUSH-002".into(),
+            category: "Pushdown".into(),
+            title: "Multi-layer streaming".into(),
+            description: "Streaming layer chain detected".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "TYPE-001".into(),
+            category: "Type".into(),
+            title: "Implicit type coercion".into(),
+            description: "TypeMismatch with fix suggestions".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "TYPE-004".into(),
+            category: "Type".into(),
+            title: "LIKE with leading wildcard".into(),
+            description: "Leading wildcard prevents index usage".into(),
+            severity: "Info".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "VEC-001".into(),
+            category: "Vectorization".into(),
+            title: "Mixed row/vector engines".into(),
+            description: "Row↔Vector adapter boundaries".into(),
+            severity: "Info".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "GEN-001".into(),
+            category: "General".into(),
+            title: "Plan too deep".into(),
+            description: "Plan depth exceeds threshold".into(),
+            severity: "Info".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "SUBQ-001".into(),
+            category: "Subquery".into(),
+            title: "Subquery not pulled up".into(),
+            description: "SubqueryScan nodes detected".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "REW-001".into(),
+            category: "Subquery".into(),
+            title: "Large IN list not rewritten".into(),
+            description: "IN lists with many values".into(),
+            severity: "Info".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "SUBQ-006".into(),
+            category: "Subquery".into(),
+            title: "Correlated subquery self-update".into(),
+            description: "Self-referencing correlated subqueries".into(),
+            severity: "Critical".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "AGG-001".into(),
+            category: "Aggregate".into(),
+            title: "Group aggregate should be hash".into(),
+            description: "Suggest Hash Aggregate for large GROUP BY".into(),
+            severity: "Info".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "AGG-002".into(),
+            category: "Aggregate".into(),
+            title: "Hash aggregate spill to disk".into(),
+            description: "Hash Aggregate exceeding work_mem".into(),
+            severity: "Critical".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "SKEW-001".into(),
+            category: "Distribution".into(),
+            title: "Data skew detected".into(),
+            description: "Uneven row distribution across datanodes".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "DIST-001".into(),
+            category: "Distribution".into(),
+            title: "Distribution column mismatch".into(),
+            description: "Join columns don't match distribution columns".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "STATS-001".into(),
+            category: "Statistics".into(),
+            title: "Stats not collected".into(),
+            description: "Tables with missing or stale statistics".into(),
+            severity: "Warning".into(),
+        },
+        ogexplain_adapter::RuleInfo {
+            rule_id: "PART-001".into(),
+            category: "Partition".into(),
+            title: "Partition pruning failure".into(),
+            description: "Full partition scan when pruning should help".into(),
+            severity: "Warning".into(),
+        },
     ])
 }

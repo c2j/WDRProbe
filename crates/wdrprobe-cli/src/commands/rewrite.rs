@@ -32,10 +32,9 @@ pub fn run(args: RewriteArgs) -> anyhow::Result<()> {
     // Parse schema if provided
     let schema = if let Some(ref json) = args.schema_json {
         Some(
-            serde_json::from_str::<std::collections::HashMap<
-                String,
-                std::collections::HashMap<String, String>,
-            >>(json)
+            serde_json::from_str::<
+                std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+            >(json)
             .map_err(|e| anyhow::anyhow!("Invalid schema JSON: {}", e))?,
         )
     } else {

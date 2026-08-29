@@ -13,7 +13,10 @@ use ratatui::Terminal;
 use std::io::stdout;
 
 #[derive(Parser)]
-#[command(name = "wdrprobe-tui", about = "WDRProbe TUI — Interactive terminal browser")]
+#[command(
+    name = "wdrprobe-tui",
+    about = "WDRProbe TUI — Interactive terminal browser"
+)]
 struct Cli {
     /// Path to the SQLite database
     #[arg(long, default_value = "./wdrprobe.db")]

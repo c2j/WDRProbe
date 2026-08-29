@@ -30,7 +30,7 @@ mod export_tests {
 
     #[test]
     fn test_export_format_variants() {
-        let formats = vec![ExportFormat::Json, ExportFormat::Csv, ExportFormat::Pdf];
+        let formats = [ExportFormat::Json, ExportFormat::Csv, ExportFormat::Pdf];
 
         assert_eq!(formats.len(), 3);
     }
@@ -89,7 +89,7 @@ mod export_tests {
 
     #[test]
     fn test_import_type_variants() {
-        let types = vec![
+        let types = [
             ImportType::Reports,
             ImportType::Comparisons,
             ImportType::Thresholds,
@@ -137,8 +137,8 @@ mod export_tests {
 
         assert!(!result.success);
         assert_eq!(result.records_failed, 15);
-        assert!(result.errors.len() > 0);
-        assert!(result.validation_errors.len() > 0);
+        assert!(!result.errors.is_empty());
+        assert!(!result.validation_errors.is_empty());
     }
 
     #[test]
@@ -161,7 +161,7 @@ mod export_tests {
 
     #[test]
     fn test_integrity_check_type_variants() {
-        let types = vec![
+        let types = [
             IntegrityCheckType::Checksum,
             IntegrityCheckType::RecordCount,
             IntegrityCheckType::SchemaValidation,
@@ -172,7 +172,7 @@ mod export_tests {
 
     #[test]
     fn test_entity_type_variants() {
-        let types = vec![
+        let types = [
             EntityType::WdrReport,
             EntityType::TopSql,
             EntityType::Comparison,

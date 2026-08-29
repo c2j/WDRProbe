@@ -6,12 +6,12 @@
 use crate::adapters::metamorphosis_adapter;
 #[cfg(feature = "diagnostic-engines")]
 use crate::adapters::schema_extractor;
+use rusqlite::params;
+use tauri::State;
 use wdrprobe_core::database::DatabaseOperations;
 use wdrprobe_core::database::DatabasePool;
 use wdrprobe_core::models::audit::*;
 use wdrprobe_core::models::TopSql;
-use rusqlite::params;
-use tauri::State;
 
 // ============================================================================
 // Detection Rules Module
@@ -42,9 +42,8 @@ impl AuditDetectionRules {
         let has_high_seq_scan = sql.rows_processed > Self::FULL_SCAN_ROWS_THRESHOLD;
 
         // Check execution plan for Seq Scan nodes
-        let plan_has_seq_scan = execution_plan.map_or(false, |plan| {
-            Self::plan_contains_node_type(&plan.plan_tree, "Seq Scan")
-        });
+        let plan_has_seq_scan = execution_plan
+            .is_some_and(|plan| Self::plan_contains_node_type(&plan.plan_tree, "Seq Scan"));
 
         if has_high_seq_scan || plan_has_seq_scan {
             let severity = if sql.rows_processed > 100000 {
@@ -354,7 +353,10 @@ impl AuditDetectionRules {
     }
 
     /// Helper: Check if plan tree contains a specific node type
-    fn plan_contains_node_type(plan: &wdrprobe_core::models::ExecutionPlanNode, node_type: &str) -> bool {
+    fn plan_contains_node_type(
+        plan: &wdrprobe_core::models::ExecutionPlanNode,
+        node_type: &str,
+    ) -> bool {
         if plan.operation.contains(node_type) {
             return true;
         }
@@ -598,16 +600,14 @@ pub async fn get_sql_audit_issues(
         let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
         let issues: Vec<SqlAuditIssue> = if params.is_empty() {
-            stmt.query_map([], |row| map_row_to_issue(row))
+            stmt.query_map([], map_row_to_issue)
                 .map_err(|e| e.to_string())?
-                .into_iter()
                 .filter_map(|r| r.ok())
                 .collect()
         } else {
             let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-            stmt.query_map(param_refs.as_slice(), |row| map_row_to_issue(row))
+            stmt.query_map(param_refs.as_slice(), map_row_to_issue)
                 .map_err(|e| e.to_string())?
-                .into_iter()
                 .filter_map(|r| r.ok())
                 .collect()
         };
@@ -1010,7 +1010,10 @@ pub async fn rewrite_sql(
     let schema = if let Some(json) = schema_json {
         Some(schema_extractor::parse_schema_json(&json)?)
     } else if let Some(rid) = report_id {
-        Some(schema_extractor::extract_schema_from_wdr(pool.inner(), rid)?)
+        Some(schema_extractor::extract_schema_from_wdr(
+            pool.inner(),
+            rid,
+        )?)
     } else {
         None
     };

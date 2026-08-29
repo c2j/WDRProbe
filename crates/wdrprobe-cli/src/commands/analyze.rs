@@ -1,4 +1,6 @@
-use wdrprobe_core::database::{get_connection, init_database, initialize_schema, DatabaseOperations};
+use wdrprobe_core::database::{
+    get_connection, init_database, initialize_schema, DatabaseOperations,
+};
 
 use crate::output;
 use crate::truncate_sql;
@@ -7,12 +9,10 @@ use crate::truncate_sql;
 pub fn run(db: String, report_id: i64, format: String) -> anyhow::Result<()> {
     let fmt = output::OutputFormat::parse(&format);
 
-    let pool = init_database(&db)
-        .map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
-    let conn = get_connection(&pool)
-        .map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
-    initialize_schema(&conn)
-        .map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
+    let pool = init_database(&db).map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
+    let conn =
+        get_connection(&pool).map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
+    initialize_schema(&conn).map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
     drop(conn);
 
     // Fetch report
@@ -63,9 +63,18 @@ pub fn run(db: String, report_id: i64, format: String) -> anyhow::Result<()> {
             // Efficiency metrics
             if let Some(eff) = &efficiency {
                 println!("--- Efficiency Metrics ---");
-                println!("  Buffer Hit Rate:           {:.2}%", eff.buffer_hit_percent);
-                println!("  CPU Efficiency:             {:.2}%", eff.cpu_efficiency_percent);
-                println!("  Soft Parse Rate:            {:.2}%", eff.soft_parse_rate_percent);
+                println!(
+                    "  Buffer Hit Rate:           {:.2}%",
+                    eff.buffer_hit_percent
+                );
+                println!(
+                    "  CPU Efficiency:             {:.2}%",
+                    eff.cpu_efficiency_percent
+                );
+                println!(
+                    "  Soft Parse Rate:            {:.2}%",
+                    eff.soft_parse_rate_percent
+                );
                 println!(
                     "  Hard Parse Rate:            {:.2}%",
                     eff.hard_parse_rate_percent
@@ -82,7 +91,10 @@ pub fn run(db: String, report_id: i64, format: String) -> anyhow::Result<()> {
                 println!("--- Load Profile ---");
                 println!("  DB Time/sec:                {:.2}", lp.db_time_per_sec);
                 println!("  CPU Time/sec:               {:.2}", lp.cpu_time_per_sec);
-                println!("  IO Requests/sec:            {:.2}", lp.io_requests_per_sec);
+                println!(
+                    "  IO Requests/sec:            {:.2}",
+                    lp.io_requests_per_sec
+                );
                 println!("  Total Transactions:         {}", lp.total_transactions);
                 println!("  Commits/sec:                {:.2}", lp.commits_per_sec);
                 println!("  Rollbacks/sec:              {:.2}", lp.rollbacks_per_sec);

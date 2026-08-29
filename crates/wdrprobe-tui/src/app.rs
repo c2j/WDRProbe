@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
 use crossterm::event::{KeyCode, KeyEvent};
-use wdrprobe_core::DatabaseOperations;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Clear, Paragraph};
 use ratatui::Frame;
+use wdrprobe_core::DatabaseOperations;
 
 use crate::components::tree::FlatNode;
 use crate::theme::Theme;
@@ -330,7 +330,11 @@ impl App {
                 self.plan_selected = self.plan_selected.saturating_sub(1);
             }
             KeyCode::Enter => {
-                plan_view::toggle_node(&self.plan_nodes, self.plan_selected, &mut self.plan_expanded);
+                plan_view::toggle_node(
+                    &self.plan_nodes,
+                    self.plan_selected,
+                    &mut self.plan_expanded,
+                );
             }
             KeyCode::Char('e') | KeyCode::Char('E') => {
                 plan_view::expand_all(&self.plan_nodes, &mut self.plan_expanded);
@@ -379,10 +383,7 @@ impl App {
             self.current_page.title(),
             self.db_path
         );
-        frame.render_widget(
-            Paragraph::new(title).style(Theme::title_bar()),
-            chunks[0],
-        );
+        frame.render_widget(Paragraph::new(title).style(Theme::title_bar()), chunks[0]);
 
         // Main content
         match self.current_page {
@@ -394,12 +395,8 @@ impl App {
         }
 
         // Status bar
-        let status =
-            " Tab:Switch  j/k:Navigate  Enter:Select  Esc:Back  ?:Help  q:Quit ";
-        frame.render_widget(
-            Paragraph::new(status).style(Theme::status_bar()),
-            chunks[2],
-        );
+        let status = " Tab:Switch  j/k:Navigate  Enter:Select  Esc:Back  ?:Help  q:Quit ";
+        frame.render_widget(Paragraph::new(status).style(Theme::status_bar()), chunks[2]);
 
         // Help overlay
         if self.show_help {

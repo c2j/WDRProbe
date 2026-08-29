@@ -110,15 +110,15 @@ mod parse_real_wdr_tests {
 
                 // Assertions
                 assert!(
-                    complete_report.database_stats.len() > 0,
+                    !complete_report.database_stats.is_empty(),
                     "Should have database stats"
                 );
                 assert!(
-                    complete_report.top_sql.len() > 0,
+                    !complete_report.top_sql.is_empty(),
                     "Should have SQL statements"
                 );
                 assert!(
-                    complete_report.object_stats.len() > 0,
+                    !complete_report.object_stats.is_empty(),
                     "Should have object stats"
                 );
 

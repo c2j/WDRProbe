@@ -159,10 +159,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 
     let display_text = sql_text.join("\n");
     let sql_para = Paragraph::new(display_text)
-        .block(Block::bordered().title(format!(
-            " Top SQLs ({} items, j/k scroll) ",
-            sqls.len()
-        )))
+        .block(Block::bordered().title(format!(" Top SQLs ({} items, j/k scroll) ", sqls.len())))
         .style(Theme::info())
         .scroll((app.detail_scroll as u16, 0))
         .wrap(Wrap { trim: false });

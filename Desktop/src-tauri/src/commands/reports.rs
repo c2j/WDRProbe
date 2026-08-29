@@ -1,13 +1,13 @@
 // Reports commands
 // IPC commands for WDR report import, retrieval, and management
 
+use tauri::State;
 use wdrprobe_core::database::DatabaseOperations;
 use wdrprobe_core::database::DatabasePool;
 use wdrprobe_core::models::{
     EfficiencyMetrics, LoadProfile, WdrReport, WdrReportDetail, WdrReportListResponse,
 };
 use wdrprobe_core::parsers::complete_wdr_parser::parse_complete_wdr_report;
-use tauri::State;
 
 /// Import WDR report from file
 #[tauri::command(rename_all = "camelCase")]
@@ -158,7 +158,7 @@ pub async fn get_wdr_report_detail(
     // Get efficiency metrics and load profile from database
     let efficiency = DatabaseOperations::get_efficiency_metrics(pool_ref, report_id)
         .map_err(|e| format!("Failed to retrieve efficiency metrics: {}", e))?
-        .unwrap_or_else(|| EfficiencyMetrics {
+        .unwrap_or(EfficiencyMetrics {
             report_id: report.id,
             buffer_hit_percent: 0.0,
             cpu_efficiency_percent: 0.0,
@@ -169,7 +169,7 @@ pub async fn get_wdr_report_detail(
 
     let load_profile = DatabaseOperations::get_load_profile(pool_ref, report_id)
         .map_err(|e| format!("Failed to retrieve load profile: {}", e))?
-        .unwrap_or_else(|| LoadProfile {
+        .unwrap_or(LoadProfile {
             report_id: report.id,
             db_time_per_sec: 0.0,
             cpu_time_per_sec: 0.0,

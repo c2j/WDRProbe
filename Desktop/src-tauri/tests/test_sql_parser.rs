@@ -111,11 +111,8 @@ mod test_sql_parser {
                                 .unwrap_or(default)
                         };
 
-                        let unique_sql_id = cells.get(0).unwrap_or(&"0".to_string()).clone();
-                        let sql_text = cells
-                            .get(cells.len() - 1)
-                            .unwrap_or(&"".to_string())
-                            .clone();
+                        let unique_sql_id = cells.first().unwrap_or(&"0".to_string()).clone();
+                        let sql_text = cells.last().unwrap_or(&"".to_string()).clone();
 
                         let sql = TopSql {
                             id: 0,
