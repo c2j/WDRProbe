@@ -16,7 +16,7 @@ concurrency:
 jobs:
   rust-checks:
     name: Rust Checks (cargo test + clippy)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -33,7 +33,7 @@ jobs:
           sudo apt-get install -y \
             libwebkit2gtk-4.0-dev \
             libgtk-3-dev \
-            libappindicator3-dev \
+            libayatana-appindicator3-dev \
             librsvg2-dev
 
       - name: Cache Rust artifacts
@@ -51,7 +51,7 @@ jobs:
 
   frontend-typecheck:
     name: Frontend Type Check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
