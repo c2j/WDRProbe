@@ -5,16 +5,18 @@
 //! 2. ogexplain_core::analyzer::DiagnosticReport → 前端友好格式
 //! 3. 热力图/瀑布图数据映射
 
-use ogexplain_core::model::plan::{ExplainPlan, PlanNode};
 use ogexplain_core::analyzer::report::{DiagnosticReport, Severity};
-use wdrprobe_core::models::execution_plan::{
-    ExecutionPlanNode, PlanNodeDetails,
-};
+use ogexplain_core::model::plan::{ExplainPlan, PlanNode};
+use wdrprobe_core::models::execution_plan::{ExecutionPlanNode, PlanNodeDetails};
 
 /// Convert ogexplain-core PlanNode tree → WDRProbe ExecutionPlanNode tree (recursive)
 pub fn convert_plan_node(node: &PlanNode) -> ExecutionPlanNode {
     let cost = node.estimated.as_ref().map(|e| e.total_cost).unwrap_or(0.0);
-    let rows = node.estimated.as_ref().map(|e| e.plan_rows as u64).unwrap_or(0);
+    let rows = node
+        .estimated
+        .as_ref()
+        .map(|e| e.plan_rows as u64)
+        .unwrap_or(0);
     let actual_rows = node.actual.as_ref().map(|a| a.rows as u64);
     let actual_time = node.actual.as_ref().map(|a| a.total_time_ms);
     let width = node.estimated.as_ref().map(|e| e.plan_width as u32);
@@ -36,13 +38,17 @@ pub fn convert_plan_node(node: &PlanNode) -> ExecutionPlanNode {
 fn convert_node_details(node: &PlanNode) -> PlanNodeDetails {
     PlanNodeDetails {
         output: None,
-        filter: node.properties.iter()
+        filter: node
+            .properties
+            .iter()
             .find(|p| p.label == "Filter")
             .map(|p| p.value.clone()),
         buffers: None,
         join_type: node.join_type.as_ref().map(|j| format!("{:?}", j)),
         hash_keys: None,
-        index_name: node.properties.iter()
+        index_name: node
+            .properties
+            .iter()
             .find(|p| p.label == "Index Name")
             .map(|p| p.value.clone()),
         table_name: node.relation.clone(),
@@ -188,9 +194,7 @@ pub fn convert_diagnostic_report(
 }
 
 /// Generate heatmap data from ogexplain-core
-pub fn convert_heatmap(
-    hm: &ogexplain_core::analyzer::heatmap::PlanHeatmap,
-) -> HeatmapData {
+pub fn convert_heatmap(hm: &ogexplain_core::analyzer::heatmap::PlanHeatmap) -> HeatmapData {
     let nodes: Vec<HeatmapNode> = hm
         .entries
         .iter()
@@ -218,9 +222,7 @@ pub fn convert_heatmap(
 }
 
 /// Generate waterfall data from ogexplain-core
-pub fn convert_waterfall(
-    wf: &ogexplain_core::analyzer::waterfall::PlanWaterfall,
-) -> WaterfallData {
+pub fn convert_waterfall(wf: &ogexplain_core::analyzer::waterfall::PlanWaterfall) -> WaterfallData {
     let nodes: Vec<WaterfallNode> = wf
         .entries
         .iter()

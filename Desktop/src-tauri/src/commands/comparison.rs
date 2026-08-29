@@ -1,12 +1,12 @@
 // Comparison commands
 // IPC commands for WDR report comparison
 
+use std::collections::HashMap;
+use tauri::State;
 use wdrprobe_core::database::DatabaseOperations;
 use wdrprobe_core::database::DatabasePool;
 use wdrprobe_core::models::comparison::*;
 use wdrprobe_core::models::TopSql;
-use std::collections::HashMap;
-use tauri::State;
 
 /// Get list of comparisons with pagination and sorting
 #[tauri::command(rename_all = "camelCase")]

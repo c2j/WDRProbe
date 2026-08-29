@@ -8,7 +8,8 @@ pub mod utils;
 pub use database::{init_database, initialize_schema, DatabaseOperations, DatabasePool};
 pub use models::*;
 pub use progress::*;
-pub use utils::*;
+pub use utils::error::*;
+pub use utils::gaussdb::*;
 
 // Result type
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;

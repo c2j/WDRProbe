@@ -1,4 +1,6 @@
-use wdrprobe_core::database::{get_connection, init_database, initialize_schema, DatabaseOperations};
+use wdrprobe_core::database::{
+    get_connection, init_database, initialize_schema, DatabaseOperations,
+};
 
 use crate::output;
 
@@ -6,12 +8,10 @@ use crate::output;
 pub fn run(db: String, format: String, limit: Option<i32>) -> anyhow::Result<()> {
     let fmt = output::OutputFormat::parse(&format);
 
-    let pool = init_database(&db)
-        .map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
-    let conn = get_connection(&pool)
-        .map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
-    initialize_schema(&conn)
-        .map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
+    let pool = init_database(&db).map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
+    let conn =
+        get_connection(&pool).map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
+    initialize_schema(&conn).map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
     drop(conn);
 
     let reports = pool
@@ -28,7 +28,8 @@ pub fn run(db: String, format: String, limit: Option<i32>) -> anyhow::Result<()>
                 return Ok(());
             }
 
-            let mut table = output::Table::new(&["ID", "Instance", "Snapshot Start", "Snapshot End", "Status"]);
+            let mut table =
+                output::Table::new(&["ID", "Instance", "Snapshot Start", "Snapshot End", "Status"]);
             for r in &reports {
                 table.add_row(&[
                     r.id.to_string(),

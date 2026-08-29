@@ -98,8 +98,8 @@ mod dashboard_tests {
 
         // Check health distribution
         assert_eq!(metrics.health_distribution.len(), 3);
-        assert!(metrics.trend_data.len() > 0);
-        assert!(metrics.hot_issues.len() > 0);
+        assert!(!metrics.trend_data.is_empty());
+        assert!(!metrics.hot_issues.is_empty());
     }
 
     #[tokio::test]

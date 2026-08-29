@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::Write;
-use wdrprobe_core::database::{get_connection, init_database, initialize_schema, DatabaseOperations};
+use wdrprobe_core::database::{
+    get_connection, init_database, initialize_schema, DatabaseOperations,
+};
 
 use crate::output;
 
@@ -8,12 +10,10 @@ use crate::output;
 pub fn run(db: String, report_id: i64, format: &str, output: Option<String>) -> anyhow::Result<()> {
     let fmt = output::OutputFormat::parse(format);
 
-    let pool = init_database(&db)
-        .map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
-    let conn = get_connection(&pool)
-        .map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
-    initialize_schema(&conn)
-        .map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
+    let pool = init_database(&db).map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
+    let conn =
+        get_connection(&pool).map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
+    initialize_schema(&conn).map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
     drop(conn);
 
     // Fetch all report data

@@ -18,8 +18,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &mut App) {
     }
 
     if app.plan_nodes.is_empty() {
-        let msg =
-            Paragraph::new("No execution plans found for this report.").style(Theme::dim());
+        let msg = Paragraph::new("No execution plans found for this report.").style(Theme::dim());
         frame.render_widget(msg, area);
         return;
     }
@@ -35,7 +34,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &mut App) {
         frame,
         chunks[0],
         &app.plan_nodes,
-        app.plan_selected.min(app.plan_nodes.len().saturating_sub(1)),
+        app.plan_selected
+            .min(app.plan_nodes.len().saturating_sub(1)),
         " Execution Plan ",
     );
 
@@ -65,9 +65,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &mut App) {
 
 /// Build the flat node list from execution plans stored in the DB.
 /// This is called when loading a report's plans.
-pub fn build_plan_nodes(
-    plans: &[wdrprobe_core::models::SqlExecutionPlan],
-) -> Vec<FlatNode> {
+pub fn build_plan_nodes(plans: &[wdrprobe_core::models::SqlExecutionPlan]) -> Vec<FlatNode> {
     if plans.is_empty() {
         return Vec::new();
     }

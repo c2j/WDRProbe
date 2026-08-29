@@ -2,14 +2,12 @@
 // Connects the metamorphosis rewrite engine to WDRProbe's Tauri backend.
 // Provides SQL parsing → rewrite → formatting pipeline.
 
-use serde::{Deserialize, Serialize};
-use metamorphosis_core::{
-    RewriteConfig, RewriteContext, RewriteEngine, RuleRegistry,
-};
+use metamorphosis_core::{RewriteConfig, RewriteContext, RewriteEngine, RuleRegistry};
 use metamorphosis_rules::builtin_rules;
-use ogsql_parser::Parser;
-use ogsql_parser::formatter::SqlFormatter;
 use ogsql_parser::analyzer::schema::SchemaMap;
+use ogsql_parser::formatter::SqlFormatter;
+use ogsql_parser::Parser;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,14 +42,12 @@ pub struct MetamorphosisAdapter {
 impl MetamorphosisAdapter {
     pub fn new() -> Self {
         let registry = RuleRegistry::new(builtin_rules());
-        Self { engine: RewriteEngine::new(registry) }
+        Self {
+            engine: RewriteEngine::new(registry),
+        }
     }
 
-    pub fn rewrite(
-        &self,
-        sql: &str,
-        schema: Option<&SchemaMap>,
-    ) -> Result<RewriteOutput, String> {
+    pub fn rewrite(&self, sql: &str, schema: Option<&SchemaMap>) -> Result<RewriteOutput, String> {
         // 1. Parse SQL
         let (stmt_infos, errors) = Parser::parse_sql(sql);
         if !errors.is_empty() {
@@ -79,7 +75,9 @@ impl MetamorphosisAdapter {
         // 4. Format output
         let formatter = SqlFormatter::new();
         let rewritten_sql = if result.changed {
-            result.statements.iter()
+            result
+                .statements
+                .iter()
                 .map(|s| formatter.format_statement(s))
                 .collect::<Vec<_>>()
                 .join(";\n")
@@ -88,24 +86,35 @@ impl MetamorphosisAdapter {
         };
 
         // 5. Build output
-        let suggestions: Vec<RewriteSuggestion> = result.suggestions.iter().map(|s| RewriteSuggestion {
-            rule_id: s.rule_id.clone(),
-            rule_description: s.rule_description.clone(),
-            confidence: format!("{:?}", s.confidence),
-            notes: s.notes.clone(),
-            message: match &s.action {
-                metamorphosis_core::RewriteAction::Suggest { message, .. } => Some(message.clone()),
-                _ => None,
-            },
-        }).collect();
+        let suggestions: Vec<RewriteSuggestion> = result
+            .suggestions
+            .iter()
+            .map(|s| RewriteSuggestion {
+                rule_id: s.rule_id.clone(),
+                rule_description: s.rule_description.clone(),
+                confidence: format!("{:?}", s.confidence),
+                notes: s.notes.clone(),
+                message: match &s.action {
+                    metamorphosis_core::RewriteAction::Suggest { message, .. } => {
+                        Some(message.clone())
+                    }
+                    _ => None,
+                },
+            })
+            .collect();
 
-        let match_failures = result.match_failures.iter().map(|f| MatchFailureInfo {
-            rule_id: f.rule_id.clone(),
-            reason: f.reason.clone(),
-        }).collect();
+        let match_failures = result
+            .match_failures
+            .iter()
+            .map(|f| MatchFailureInfo {
+                rule_id: f.rule_id.clone(),
+                reason: f.reason.clone(),
+            })
+            .collect();
 
         // Determine which rules were applied
-        let rules_applied: Vec<String> = suggestions.iter()
+        let rules_applied: Vec<String> = suggestions
+            .iter()
             .map(|s| s.rule_id.clone())
             .chain(result.match_failures.iter().map(|f| f.rule_id.clone()))
             .collect::<HashSet<_>>()

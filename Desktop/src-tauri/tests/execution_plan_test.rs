@@ -490,21 +490,21 @@ QUERY PLAN
         let plan = result.unwrap();
         println!("DEBUG: Root operation: {}", plan.operation);
         println!("DEBUG: Root children count: {}", plan.children.len());
-        
+
         assert_eq!(plan.operation, "SQL+PLAN");
         assert!(plan.node_details.output.is_some());
-        
+
         let output = plan.node_details.output.as_ref().unwrap();
         println!("DEBUG: SQL output: {}", output[0]);
         assert!(output[0].contains("select * from t1,t2 where t1.c1=t2.c2"));
-        
+
         // Should have one child which is the actual execution plan
         assert_eq!(plan.children.len(), 1);
-        
+
         let child_plan = &plan.children[0];
         println!("DEBUG: Child operation: {}", child_plan.operation);
         println!("DEBUG: Child children count: {}", child_plan.children.len());
-        
+
         assert_eq!(child_plan.operation, "Streaming");
         // For now, let's just check it parsed something, we'll fix the child parsing later
         // assert!(child_plan.children.len() > 0);

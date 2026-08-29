@@ -493,7 +493,7 @@ mod end_to_end_tests {
         // 4. User views recent imports
 
         // Step 1: Verify multiple instances can be handled
-        let instances = vec!["instance_a", "instance_b", "instance_c"];
+        let instances = ["instance_a", "instance_b", "instance_c"];
         assert_eq!(instances.len(), 3);
 
         // Step 2: Verify instance summaries for multiple instances
@@ -724,7 +724,7 @@ mod end_to_end_tests {
         assert_ne!(high_severity, medium_severity);
 
         // Verify finding categories
-        let categories = vec![
+        let categories = [
             dashboard::FindingCategory::Sql,
             dashboard::FindingCategory::Wait,
             dashboard::FindingCategory::Object,

@@ -72,14 +72,7 @@ pub struct HotIssue {
     pub category: FindingCategory,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum AuditSeverity {
-    Critical,
-    High,
-    Medium,
-    Low,
-    Info,
-}
+pub use crate::models::audit::AuditSeverity;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum FindingCategory {

@@ -7,9 +7,10 @@ use crate::theme::Theme;
 
 pub fn render(frame: &mut Frame, area: Rect, app: &mut App) {
     if app.reports.is_empty() {
-        let msg = Paragraph::new("No WDR reports found. Import WDR reports first via the desktop app.")
-            .style(Theme::dim())
-            .block(Block::bordered().title(" Reports "));
+        let msg =
+            Paragraph::new("No WDR reports found. Import WDR reports first via the desktop app.")
+                .style(Theme::dim())
+                .block(Block::bordered().title(" Reports "));
         frame.render_widget(msg, area);
         return;
     }

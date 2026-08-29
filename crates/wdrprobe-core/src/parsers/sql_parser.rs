@@ -13,7 +13,7 @@ pub fn parse_execution_plan_json(plan_json: &str) -> Result<ExecutionPlanNode, S
 
     // PostgreSQL/GaussDB FORMAT JSON returns an array with one element
     let plan = if let Some(arr) = parsed.as_array() {
-        arr.get(0)
+        arr.first()
             .and_then(|v| v.get("Plan"))
             .ok_or_else(|| "No Plan found in JSON array".to_string())?
     } else {
@@ -34,12 +34,12 @@ pub fn parse_execution_plan_text(plan_text: &str) -> Result<ExecutionPlanNode, S
     }
 
     // Check if this is SQL+PLAN format (SQL statement + EXPLAIN output)
-    if is_sql_plan_format(&plan_text) {
-        return parse_sql_plan_format(&plan_text);
+    if is_sql_plan_format(plan_text) {
+        return parse_sql_plan_format(plan_text);
     }
 
     // Parse the root node from first line
-    let root_line = lines.get(0).ok_or("Empty plan")?;
+    let root_line = lines.first().ok_or("Empty plan")?;
     let root = parse_plan_line(root_line, 0)?;
 
     // Recursively parse child nodes
@@ -51,69 +51,72 @@ pub fn parse_execution_plan_text(plan_text: &str) -> Result<ExecutionPlanNode, S
 /// Check if the text contains SQL statements with EXPLAIN output
 pub fn is_sql_plan_format(text: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    
+
     // Look for patterns that indicate SQL+PLAN format
     let mut has_sql = false;
     let mut has_explain = false;
     let mut has_gaussdb_prompt = false;
-    
-    for line in lines.iter().take(20) { // Check first 20 lines for indicators
+
+    for line in lines.iter().take(20) {
+        // Check first 20 lines for indicators
         let trimmed = line.trim().to_uppercase();
-        
+
         // GaussDB prompt pattern
         if trimmed.starts_with("GAUSSDB=#") {
             has_gaussdb_prompt = true;
         }
-        
+
         // SQL statement patterns
-        if trimmed.starts_with("SELECT ") || 
-           trimmed.starts_with("INSERT ") ||
-           trimmed.starts_with("UPDATE ") ||
-           trimmed.starts_with("DELETE ") ||
-           trimmed.starts_with("CREATE ") ||
-           trimmed.starts_with("DROP ") ||
-           trimmed.starts_with("ALTER ") ||
-           trimmed.starts_with("WITH ") ||
-           (has_gaussdb_prompt && trimmed.contains("EXPLAIN")) {
+        if trimmed.starts_with("SELECT ")
+            || trimmed.starts_with("INSERT ")
+            || trimmed.starts_with("UPDATE ")
+            || trimmed.starts_with("DELETE ")
+            || trimmed.starts_with("CREATE ")
+            || trimmed.starts_with("DROP ")
+            || trimmed.starts_with("ALTER ")
+            || trimmed.starts_with("WITH ")
+            || (has_gaussdb_prompt && trimmed.contains("EXPLAIN"))
+        {
             has_sql = true;
         }
-        
+
         // EXPLAIN output patterns - extended for GaussDB format
-        if trimmed.contains("QUERY PLAN") || 
-           trimmed.contains("HASH JOIN") ||
-           trimmed.contains("SEQ SCAN") ||
-           trimmed.contains("INDEX SCAN") ||
-           trimmed.contains("NESTED LOOP") ||
-           trimmed.contains("STREAMING") ||
-           trimmed.contains("RETRIEVE") ||
-           trimmed.contains("HASH COND") ||
-           trimmed.contains("SPAWN ON") ||
-           trimmed.starts_with("->") ||
-           trimmed.starts_with("STREAMING") {
+        if trimmed.contains("QUERY PLAN")
+            || trimmed.contains("HASH JOIN")
+            || trimmed.contains("SEQ SCAN")
+            || trimmed.contains("INDEX SCAN")
+            || trimmed.contains("NESTED LOOP")
+            || trimmed.contains("STREAMING")
+            || trimmed.contains("RETRIEVE")
+            || trimmed.contains("HASH COND")
+            || trimmed.contains("SPAWN ON")
+            || trimmed.starts_with("->")
+            || trimmed.starts_with("STREAMING")
+        {
             has_explain = true;
         }
-        
+
         // If we have both patterns, it's SQL+PLAN format
         if has_sql && has_explain {
             return true;
         }
     }
-    
+
     false
 }
 
 /// Parse SQL+PLAN format (SQL statements with EXPLAIN output)
 pub fn parse_sql_plan_format(text: &str) -> Result<ExecutionPlanNode, String> {
     let lines: Vec<&str> = text.lines().collect();
-    
+
     // Detect format type
     let is_tabular_format = lines.iter().any(|line| {
         let trimmed = line.trim();
-        trimmed.starts_with("id |") || 
-        trimmed.contains("| E-rows |") ||
-        trimmed.starts_with("----+")
+        trimmed.starts_with("id |")
+            || trimmed.contains("| E-rows |")
+            || trimmed.starts_with("----+")
     });
-    
+
     if is_tabular_format {
         parse_gaussdb_tabular_format(&lines)
     } else {
@@ -126,7 +129,7 @@ fn parse_gaussdb_tabular_format(lines: &[&str]) -> Result<ExecutionPlanNode, Str
     let mut sql_part = String::new();
     let mut plan_lines = Vec::new();
     let mut in_predicate_section = false;
-    
+
     // Extract SQL from GaussDB prompt
     for line in lines {
         let trimmed = line.trim().to_uppercase();
@@ -137,34 +140,36 @@ fn parse_gaussdb_tabular_format(lines: &[&str]) -> Result<ExecutionPlanNode, Str
             sql_part = sql_part.replace("gaussdb=# ", "").trim().to_string();
             // Remove trailing semicolon if present
             if sql_part.ends_with(";") {
-                sql_part = sql_part[..sql_part.len()-1].trim().to_string();
+                sql_part = sql_part[..sql_part.len() - 1].trim().to_string();
             }
         } else if trimmed.starts_with("ID |") || trimmed.starts_with("----+") {
             // Start collecting plan lines after header
             in_predicate_section = false;
         } else if trimmed.starts_with("PREDICATE INFORMATION") || trimmed.starts_with("----") {
             in_predicate_section = true;
-        } else if !in_predicate_section && !trimmed.is_empty() && 
-                 !trimmed.starts_with("(") && 
-                 !trimmed.starts_with("gaussdb=") {
+        } else if !in_predicate_section
+            && !trimmed.is_empty()
+            && !trimmed.starts_with("(")
+            && !trimmed.starts_with("gaussdb=")
+        {
             // Collect plan lines (skip empty lines, predicate section, and prompts)
             if !trimmed.starts_with("SET") && !trimmed.starts_with("Time:") {
                 plan_lines.push(line.trim());
             }
         }
     }
-    
+
     if plan_lines.is_empty() {
         return Err("No execution plan found in tabular format".to_string());
     }
-    
+
     // Parse the tabular format
     let plan_tree = parse_tabular_plan_lines(&plan_lines)?;
-    
+
     // Create root node with SQL
     let mut node_details = plan_tree.node_details.clone();
     node_details.output = Some(vec![format!("SQL: {}", sql_part)]);
-    
+
     Ok(ExecutionPlanNode {
         operation: "SQL+PLAN".to_string(),
         cost: plan_tree.cost,
@@ -182,26 +187,26 @@ fn parse_gaussdb_tabular_format(lines: &[&str]) -> Result<ExecutionPlanNode, Str
 /// Parse tabular plan lines into execution plan tree
 fn parse_tabular_plan_lines(plan_lines: &[&str]) -> Result<ExecutionPlanNode, String> {
     let mut nodes: Vec<ExecutionPlanNode> = Vec::new();
-    
+
     for line in plan_lines {
         let trimmed = line.trim();
         if trimmed.is_empty() || trimmed.starts_with("(") {
             continue;
         }
-        
+
         // Parse tabular format: "  1 | ->  Streaming (type: GATHER)            |     20 |      16 | 28.69"
         if let Some(id_pos) = trimmed.find('|') {
             let id_str = trimmed[..id_pos].trim();
             if id_str.parse::<i32>().is_ok() {
                 // Parse operation from the tabular format
-                let remaining = &trimmed[id_pos+1..];
+                let remaining = &trimmed[id_pos + 1..];
                 if let Some(op_pos) = remaining.find('|') {
                     let operation_part = remaining[..op_pos].trim().to_string();
                     let operation = extract_operation_from_tabular(&operation_part);
                     let cost = extract_cost_from_tabular(remaining);
                     let rows = extract_rows_from_tabular(remaining);
                     let table_name = extract_table_from_operation(&operation_part);
-                    
+
                     let node = ExecutionPlanNode {
                         operation,
                         cost,
@@ -227,46 +232,9 @@ fn parse_tabular_plan_lines(plan_lines: &[&str]) -> Result<ExecutionPlanNode, St
             }
         }
     }
-    
+
     // Build tree structure based on indentation
     build_plan_tree_from_nodes(&nodes)
-}
-
-/// Extract operation name from operation part
-fn extract_operation_name(op_part: &str) -> String {
-    let cleaned = op_part.trim();
-    // Remove leading dashes and arrows like "-> "
-    let cleaned = if cleaned.starts_with("->") {
-        &cleaned[2..].trim()
-    } else {
-        cleaned
-    };
-    
-    // Extract the main operation type (before parenthesis or first space)
-    if let Some(paren_pos) = cleaned.find('(') {
-        cleaned[..paren_pos].trim().to_string()
-    } else if let Some(space_pos) = cleaned.find(' ') {
-        cleaned[..space_pos].to_string()
-    } else {
-        cleaned.to_string()
-    }
-}
-
-/// Extract table name from operation
-fn extract_table_name(op_part: &str) -> Option<String> {
-    let cleaned = op_part.trim();
-    if cleaned.starts_with("->") {
-        let op_part = &cleaned[2..].trim();
-    }
-    
-    // Look for patterns like "Seq Scan on t2" or "Index Scan using idx_name on table"
-    if let Some(on_pos) = op_part.rfind(" on ") {
-        let table = &op_part[on_pos+4..].trim();
-        if !table.is_empty() {
-            return Some(table.to_string());
-        }
-    }
-    None
 }
 
 /// Extract cost from tabular format
@@ -310,17 +278,17 @@ fn build_plan_tree_from_nodes(nodes: &[ExecutionPlanNode]) -> Result<ExecutionPl
     if nodes.is_empty() {
         return Err("No plan nodes found".to_string());
     }
-    
+
     // For now, return the first node as root with others as children
     // A more sophisticated implementation would build proper hierarchy
     let mut root = nodes[0].clone();
-    
+
     if nodes.len() > 1 {
         for node in &nodes[1..] {
             root.children.push(node.clone());
         }
     }
-    
+
     Ok(root)
 }
 
@@ -333,28 +301,31 @@ fn parse_gaussdb_text_format(lines: &[&str]) -> Result<ExecutionPlanNode, String
         if trimmed.starts_with("GAUSSDB=#") && trimmed.contains("EXPLAIN") {
             sql_end_index = Some(i);
             break;
-        } else if trimmed.starts_with("EXPLAIN") || (trimmed.contains("EXPLAIN") && trimmed.ends_with(";")) {
+        } else if trimmed.starts_with("EXPLAIN")
+            || (trimmed.contains("EXPLAIN") && trimmed.ends_with(";"))
+        {
             sql_end_index = Some(i);
             break;
         }
     }
-    
+
     if sql_end_index.is_none() {
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
-            if trimmed.ends_with(";") && 
-               (trimmed.to_uppercase().starts_with("SELECT ") ||
-                trimmed.to_uppercase().starts_with("INSERT ") ||
-                trimmed.to_uppercase().starts_with("UPDATE ") ||
-                trimmed.to_uppercase().starts_with("DELETE ")) {
+            if trimmed.ends_with(";")
+                && (trimmed.to_uppercase().starts_with("SELECT ")
+                    || trimmed.to_uppercase().starts_with("INSERT ")
+                    || trimmed.to_uppercase().starts_with("UPDATE ")
+                    || trimmed.to_uppercase().starts_with("DELETE "))
+            {
                 sql_end_index = Some(i);
                 break;
             }
         }
     }
-    
+
     let sql_end_index = sql_end_index.unwrap_or(0);
-    
+
     // Extract SQL part
     let sql_part = if sql_end_index < lines.len() {
         let sql_line = lines[sql_end_index].trim();
@@ -363,60 +334,66 @@ fn parse_gaussdb_text_format(lines: &[&str]) -> Result<ExecutionPlanNode, String
     } else {
         lines[0].trim().to_string()
     };
-    
+
     // Find plan start
     let mut plan_start_index = sql_end_index + 1;
     while plan_start_index < lines.len() {
         let line = lines[plan_start_index].trim();
         let line_upper = line.to_uppercase();
-        
-        if !line.is_empty() && !line.chars().all(|c| c == '-') {
-            if line_upper.contains("QUERY PLAN") || 
-               line_upper.contains("STREAMING") ||
-               line_upper.starts_with("->") ||
-               line_upper.contains("HASH JOIN") ||
-               line_upper.contains("SEQ SCAN") ||
-               line_upper.contains("INDEX SCAN") {
-                break;
-            }
+
+        if !line.is_empty()
+            && !line.chars().all(|c| c == '-')
+            && (line_upper.contains("QUERY PLAN")
+                || line_upper.contains("STREAMING")
+                || line_upper.starts_with("->")
+                || line_upper.contains("HASH JOIN")
+                || line_upper.contains("SEQ SCAN")
+                || line_upper.contains("INDEX SCAN"))
+        {
+            break;
         }
         plan_start_index += 1;
     }
-    
+
     if plan_start_index >= lines.len() {
         return Err("No execution plan found".to_string());
     }
-    
-    if lines[plan_start_index].trim().to_uppercase().contains("QUERY PLAN") {
+
+    if lines[plan_start_index]
+        .trim()
+        .to_uppercase()
+        .contains("QUERY PLAN")
+    {
         plan_start_index += 1;
-        while plan_start_index < lines.len() && 
-              (lines[plan_start_index].trim().is_empty() || 
-               lines[plan_start_index].trim().chars().all(|c| c == '-')) {
+        while plan_start_index < lines.len()
+            && (lines[plan_start_index].trim().is_empty()
+                || lines[plan_start_index].trim().chars().all(|c| c == '-'))
+        {
             plan_start_index += 1;
         }
     }
-    
+
     if plan_start_index >= lines.len() {
         return Err("No execution plan content found".to_string());
     }
-    
+
     let explain_part = lines[plan_start_index..]
         .iter()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .collect::<Vec<&str>>()
         .join("\n");
-    
+
     if explain_part.is_empty() {
         return Err("Empty execution plan".to_string());
     }
-    
+
     let plan_tree = parse_execution_plan_text(&explain_part)?;
-    
+
     // Create a root node that includes the SQL statement
     let mut node_details = plan_tree.node_details.clone();
     node_details.output = Some(vec![format!("SQL: {}", sql_part)]);
-    
+
     Ok(ExecutionPlanNode {
         operation: "SQL+PLAN".to_string(),
         cost: plan_tree.cost,
@@ -499,7 +476,7 @@ fn parse_metrics_from_line(line: &str) -> (f64, u64, Option<u64>, Option<f64>) {
     if let Some(cost_start) = line.find("cost=") {
         let cost_part = &line[cost_start + 5..];
         let cost_end = cost_part
-            .find(|c: char| !c.is_digit(10) && c != '.')
+            .find(|c: char| !c.is_ascii_digit() && c != '.')
             .unwrap_or(cost_part.len());
         let cost_str = &cost_part[..cost_end];
 
@@ -516,7 +493,7 @@ fn parse_metrics_from_line(line: &str) -> (f64, u64, Option<u64>, Option<f64>) {
     if let Some(rows_start) = line.find("rows=") {
         let rows_part = &line[rows_start + 5..];
         let rows_end = rows_part
-            .find(|c: char| !c.is_digit(10))
+            .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(rows_part.len());
         let rows_str = &rows_part[..rows_end];
         rows = rows_str.parse().unwrap_or(0);
@@ -537,7 +514,7 @@ fn parse_actual_metrics(line: &str) -> (Option<u64>, Option<f64>) {
     if let Some(ar_start) = line.find("actual rows=") {
         let ar_part = &line[ar_start + 12..];
         let ar_end = ar_part
-            .find(|c: char| !c.is_digit(10))
+            .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(ar_part.len());
         actual_rows = ar_part[..ar_end].parse().ok();
     }
@@ -546,9 +523,7 @@ fn parse_actual_metrics(line: &str) -> (Option<u64>, Option<f64>) {
     if let Some(at_start) = line.find("actual time=") {
         let at_part = &line[at_start + 12..];
         // Find the end of the time value (after the second "..")
-        let at_end = at_part
-            .find(|c: char| c == ' ' || c == ')')
-            .unwrap_or(at_part.len());
+        let at_end = at_part.find([' ', ')']).unwrap_or(at_part.len());
 
         // Parse total time (after "..")
         if let Some(dot_dot) = at_part[..at_end].find("..") {
@@ -576,34 +551,26 @@ fn parse_node_details(line: &str) -> PlanNodeDetails {
     if line.contains(" on ") {
         let on_start = line.find(" on ").unwrap() + 4;
         let on_part = &line[on_start..];
-        let table_end = on_part
-            .find(|c: char| c == ' ' || c == '(')
-            .unwrap_or(on_part.len());
+        let table_end = on_part.find([' ', '(']).unwrap_or(on_part.len());
         details.table_name = Some(on_part[..table_end].trim().to_string());
     } else if line.contains(" Scan ") {
         let scan_start = line.find(" Scan ").unwrap() + 6;
         let scan_part = &line[scan_start..];
-        let table_end = scan_part
-            .find(|c: char| c == ' ' || c == '(')
-            .unwrap_or(scan_part.len());
+        let table_end = scan_part.find([' ', '(']).unwrap_or(scan_part.len());
         details.table_name = Some(scan_part[..table_end].trim().to_string());
     }
 
     // Extract index name
     if let Some(idx_start) = line.find(" using ") {
         let using_part = &line[idx_start + 7..];
-        let idx_end = using_part
-            .find(|c: char| c == ' ' || c == '(')
-            .unwrap_or(using_part.len());
+        let idx_end = using_part.find([' ', '(']).unwrap_or(using_part.len());
         details.index_name = Some(using_part[..idx_end].trim().to_string());
     }
 
     // Extract filter condition
     if let Some(filter_start) = line.find(" Filter: ") {
         let filter_part = &line[filter_start + 9..];
-        let filter_end = filter_part
-            .find(|c: char| c == ')')
-            .unwrap_or(filter_part.len());
+        let filter_end = filter_part.find(')').unwrap_or(filter_part.len());
         details.filter = Some(filter_part[..filter_end].trim().to_string());
     }
 
@@ -618,9 +585,7 @@ fn parse_node_details(line: &str) -> PlanNodeDetails {
     // Extract hash keys
     if let Some(hash_start) = line.find(" Hash Cond: ") {
         let hash_part = &line[hash_start + 12..];
-        let hash_end = hash_part
-            .find(|c: char| c == ')')
-            .unwrap_or(hash_part.len());
+        let hash_end = hash_part.find(')').unwrap_or(hash_part.len());
         let hash_cond = hash_part[..hash_end].trim().to_string();
         details.hash_keys = Some(vec![hash_cond]);
     }
@@ -628,7 +593,7 @@ fn parse_node_details(line: &str) -> PlanNodeDetails {
     // Extract buffer information
     if let Some(buf_start) = line.find(" Buffers: ") {
         let buf_part = &line[buf_start + 10..];
-        let buf_end = buf_part.find(|c: char| c == ')').unwrap_or(buf_part.len());
+        let buf_end = buf_part.find(')').unwrap_or(buf_part.len());
         details.buffers = Some(buf_part[..buf_end].trim().to_string());
     }
 
@@ -648,12 +613,9 @@ fn parse_plan_node(json: &Value) -> Result<ExecutionPlanNode, String> {
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
 
-    let rows = json.get("Plan Rows").and_then(|v| v.as_u64()).unwrap_or(0) as u64;
+    let rows = json.get("Plan Rows").and_then(|v| v.as_u64()).unwrap_or(0);
 
-    let actual_rows = json
-        .get("Actual Rows")
-        .and_then(|v| v.as_u64())
-        .map(|v| v as u64);
+    let actual_rows = json.get("Actual Rows").and_then(|v| v.as_u64());
 
     let actual_time = json.get("Actual Total Time").and_then(|v| v.as_f64());
 
@@ -823,19 +785,17 @@ fn analyze_node(
     suggestions: &mut Vec<String>,
 ) {
     // Check for full table scans on large tables
-    if node.operation.contains("Seq Scan") {
-        if node.rows > 100000 {
-            warnings.push(format!(
-                "Full table scan on '{}' will process {} rows",
-                node.node_details.table_name.as_deref().unwrap_or("unknown"),
-                node.rows
+    if node.operation.contains("Seq Scan") && node.rows > 100000 {
+        warnings.push(format!(
+            "Full table scan on '{}' will process {} rows",
+            node.node_details.table_name.as_deref().unwrap_or("unknown"),
+            node.rows
+        ));
+        if let Some(table) = &node.node_details.table_name {
+            suggestions.push(format!(
+                "Consider creating an index on table '{}' to reduce full table scans",
+                table
             ));
-            if let Some(table) = &node.node_details.table_name {
-                suggestions.push(format!(
-                    "Consider creating an index on table '{}' to reduce full table scans",
-                    table
-                ));
-            }
         }
     }
 
@@ -930,11 +890,10 @@ pub fn extract_sql_from_explain(query: &str) -> Result<String, String> {
 /// Trim trailing semicolon from SQL
 fn trim_semicolon(sql: &str) -> String {
     let trimmed = sql.trim();
-    if trimmed.ends_with(';') {
-        trimmed[..trimmed.len() - 1].trim().to_string()
-    } else {
-        trimmed.to_string()
-    }
+    trimmed
+        .strip_suffix(';')
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| trimmed.to_string())
 }
 
 /// Generate EXPLAIN JSON query for a SQL statement
@@ -989,10 +948,8 @@ fn find_table_end(sql_part: &str) -> usize {
                 }
                 depth -= 1;
             }
-            ' ' | '\t' | '\n' | ',' => {
-                if depth == 0 {
-                    break;
-                }
+            ' ' | '\t' | '\n' | ',' if depth == 0 => {
+                break;
             }
             _ => {}
         }
@@ -1033,12 +990,11 @@ pub fn validate_sql_syntax(sql: &str) -> Result<(), String> {
                         return Err("Unbalanced parentheses: too many closing".to_string());
                     }
                 }
-                ';' => {
+                ';'
                     // Check if semicolon is in appropriate position
-                    if i < chars.len() - 1 {
+                    if i < chars.len() - 1 => {
                         return Err("Semicolon should be at the end of SQL".to_string());
                     }
-                }
                 _ => {}
             }
         }
@@ -1062,9 +1018,9 @@ pub fn validate_sql_syntax(sql: &str) -> Result<(), String> {
         .any(|start| upper.starts_with(start) || upper.starts_with(&format!("{} ", start)));
 
     if !starts_validly {
-        return Err(format!(
-            "SQL must start with a valid statement (SELECT, INSERT, UPDATE, etc.)"
-        ));
+        return Err(
+            "SQL must start with a valid statement (SELECT, INSERT, UPDATE, etc.)".to_string(),
+        );
     }
 
     Ok(())
@@ -1073,14 +1029,10 @@ pub fn validate_sql_syntax(sql: &str) -> Result<(), String> {
 /// Extract operation name from tabular operation string
 fn extract_operation_from_tabular(op_str: &str) -> String {
     let cleaned = op_str.trim();
-    
+
     // Remove leading "-> " if present
-    let cleaned = if cleaned.starts_with("->") {
-        &cleaned[2..].trim()
-    } else {
-        cleaned
-    };
-    
+    let cleaned = cleaned.strip_prefix("->").map(str::trim).unwrap_or(cleaned);
+
     // Extract main operation (before parentheses or first space)
     if let Some(paren_pos) = cleaned.find('(') {
         cleaned[..paren_pos].trim().to_string()
@@ -1094,14 +1046,10 @@ fn extract_operation_from_tabular(op_str: &str) -> String {
 /// Extract table name from operation string
 fn extract_table_from_operation(op_str: &str) -> Option<String> {
     let cleaned = op_str.trim();
-    
+
     // Remove leading "-> " if present
-    let cleaned = if cleaned.starts_with("->") {
-        &cleaned[2..].trim()
-    } else {
-        cleaned
-    };
-    
+    let cleaned = cleaned.strip_prefix("->").map(str::trim).unwrap_or(cleaned);
+
     // Look for " on table_name" pattern
     if let Some(on_pos) = cleaned.rfind(" on ") {
         let table_part = &cleaned[on_pos + 4..].trim();
@@ -1109,7 +1057,7 @@ fn extract_table_from_operation(op_str: &str) -> Option<String> {
             return Some(table_part.to_string());
         }
     }
-    
+
     None
 }
 

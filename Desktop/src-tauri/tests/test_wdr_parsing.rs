@@ -2,7 +2,6 @@
 #[cfg(test)]
 mod tests {
     use wdrprobe_desktop_lib::parsers::wdr_parser::parse_top_sqls;
-    use wdrprobe_desktop_lib::utils::WdrProbeError;
 
     #[test]
     fn test_parse_wdr_sqls() {
@@ -10,7 +9,10 @@ mod tests {
             .join("../../example/opengauss_v1.html");
 
         if !file_path.exists() {
-            println!("Skipping test: Example file not found at {}", file_path.display());
+            println!(
+                "Skipping test: Example file not found at {}",
+                file_path.display()
+            );
             return;
         }
 

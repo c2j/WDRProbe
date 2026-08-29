@@ -23,12 +23,10 @@ struct AuditIssue {
 pub fn run(db: String, report_id: Option<i64>, format: String) -> anyhow::Result<()> {
     let fmt = output::OutputFormat::parse(&format);
 
-    let pool = init_database(&db)
-        .map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
-    let conn = get_connection(&pool)
-        .map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
-    initialize_schema(&conn)
-        .map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
+    let pool = init_database(&db).map_err(|e| anyhow::anyhow!("Failed to init database: {}", e))?;
+    let conn =
+        get_connection(&pool).map_err(|e| anyhow::anyhow!("Failed to get connection: {}", e))?;
+    initialize_schema(&conn).map_err(|e| anyhow::anyhow!("Failed to initialize schema: {}", e))?;
 
     let issues = query_audit_issues(&conn, report_id)?;
 
@@ -81,7 +79,10 @@ pub fn run(db: String, report_id: Option<i64>, format: String) -> anyhow::Result
 }
 
 /// Query audit issues from the database
-fn query_audit_issues(conn: &rusqlite::Connection, report_id: Option<i64>) -> anyhow::Result<Vec<AuditIssue>> {
+fn query_audit_issues(
+    conn: &rusqlite::Connection,
+    report_id: Option<i64>,
+) -> anyhow::Result<Vec<AuditIssue>> {
     let sql = if report_id.is_some() {
         "SELECT id, report_id, sql_id, issue_type, severity, title, description, problematic_sql, recommendation, status, detected_at FROM sql_audit_issues WHERE report_id = ? ORDER BY detected_at DESC"
     } else {

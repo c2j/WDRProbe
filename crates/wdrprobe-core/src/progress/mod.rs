@@ -57,24 +57,17 @@ impl ProgressState {
 /// Progress reporter for tracking and emitting progress updates
 pub struct ProgressReporter {
     state: Arc<Mutex<ProgressState>>,
-    emit_updates: bool,
 }
 
 impl ProgressReporter {
     /// Create a new progress reporter
-    pub fn new(
-        operation_id: String,
-        operation_type: String,
-        total_steps: usize,
-        emit_updates: bool,
-    ) -> Self {
+    pub fn new(operation_id: String, operation_type: String, total_steps: usize) -> Self {
         Self {
             state: Arc::new(Mutex::new(ProgressState::new(
                 operation_id,
                 operation_type,
                 total_steps,
             ))),
-            emit_updates,
         }
     }
 
@@ -132,7 +125,6 @@ pub fn create_import_reporter(operation_id: String) -> ProgressReporter {
         operation_id,
         "import_wdr".to_string(),
         5, // Parse, validate, insert SQL, insert metadata, complete
-        true,
     )
 }
 
@@ -141,7 +133,6 @@ pub fn create_comparison_reporter(operation_id: String) -> ProgressReporter {
         operation_id,
         "create_comparison".to_string(),
         4, // Load reports, match SQLs, calculate metrics, save
-        true,
     )
 }
 
@@ -150,7 +141,6 @@ pub fn create_audit_reporter(operation_id: String) -> ProgressReporter {
         operation_id,
         "run_audit".to_string(),
         3, // Load SQLs, run detection rules, save issues
-        true,
     )
 }
 
@@ -174,12 +164,7 @@ mod tests {
 
     #[test]
     fn test_progress_reporter() {
-        let reporter = ProgressReporter::new(
-            "test-2".to_string(),
-            "test".to_string(),
-            5,
-            false, // Don't emit in tests
-        );
+        let reporter = ProgressReporter::new("test-2".to_string(), "test".to_string(), 5);
 
         assert_eq!(reporter.operation_id(), "test-2");
         assert_eq!(reporter.state().current_step, 0);

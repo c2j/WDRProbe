@@ -1,5 +1,5 @@
-use std::fs;
 use crate::output;
+use std::fs;
 
 /// Run the diagnose command: analyze an EXPLAIN plan
 pub fn run(
@@ -12,10 +12,8 @@ pub fn run(
 
     // Get plan text from file or inline
     let text = match (plan_file, plan_text) {
-        (Some(path), _) => {
-            fs::read_to_string(&path)
-                .map_err(|e| anyhow::anyhow!("Failed to read plan file '{}': {}", path, e))?
-        }
+        (Some(path), _) => fs::read_to_string(&path)
+            .map_err(|e| anyhow::anyhow!("Failed to read plan file '{}': {}", path, e))?,
         (None, Some(txt)) => txt,
         (None, None) => {
             anyhow::bail!("Either --plan-file or --plan-text is required");
@@ -114,10 +112,7 @@ pub fn run(
                     }
 
                     if let Some(rewrite) = &finding.sql_rewrite {
-                        println!(
-                            "   SQL Rewrite available: {}",
-                            rewrite.explanation
-                        );
+                        println!("   SQL Rewrite available: {}", rewrite.explanation);
                     }
                     println!();
                 }
@@ -127,10 +122,7 @@ pub fn run(
             println!("--- Plan Summary ---");
             println!("  Total nodes: {}", report.stats.total_nodes);
             println!("  Max depth:   {}", report.stats.max_depth);
-            println!(
-                "  Max node time: {:.2}ms",
-                report.stats.max_node_time_ms
-            );
+            println!("  Max node time: {:.2}ms", report.stats.max_node_time_ms);
             println!("  Max node rows: {:.0}", report.stats.max_node_rows);
             println!();
 
@@ -145,8 +137,14 @@ pub fn run(
             // Waterfall info
             if let Some(wf) = waterfall {
                 println!("--- Resource Waterfall ---");
-                println!("  CPU bottlenecks: {}", wf.bottlenecks.cpu_bottlenecks.len());
-                println!("  Memory bottlenecks: {}", wf.bottlenecks.memory_bottlenecks.len());
+                println!(
+                    "  CPU bottlenecks: {}",
+                    wf.bottlenecks.cpu_bottlenecks.len()
+                );
+                println!(
+                    "  Memory bottlenecks: {}",
+                    wf.bottlenecks.memory_bottlenecks.len()
+                );
                 println!();
             }
         }

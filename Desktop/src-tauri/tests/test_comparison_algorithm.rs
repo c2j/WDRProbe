@@ -279,7 +279,7 @@ mod comparison_algorithm_tests {
     /// Test metrics aggregation
     #[test]
     fn test_metrics_aggregation() {
-        let metrics = vec![
+        let metrics = [
             SqlMetrics {
                 executions: 100,
                 total_elapsed_time: 1000.0,
@@ -320,7 +320,7 @@ mod comparison_algorithm_tests {
     /// Test comparison summary generation
     #[test]
     fn test_comparison_summary_generation() {
-        let findings = vec![
+        let findings = [
             KeyFinding {
                 category: "Sql".to_string(),
                 metric: "Elapsed Time".to_string(),
