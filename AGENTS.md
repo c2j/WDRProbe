@@ -99,18 +99,22 @@ cargo test --test <name>
 # 全量 Rust 测试（含 mockall/rstest/criterion 测试依赖）
 cargo test --features test
 
-# 提交前门禁（对应 .github/workflows/pr-checks.yml 的 Rust Checks job）
+# 提交前门禁（本地唯一门禁——CI 跑不起来，见下）
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
-
-# 本文件额外要求：跑上测试专用依赖（CI 目前没跑这条）
 cargo test --features test
 ```
 
-> 注意：命令在 `Desktop/src-tauri/` 目录执行（App 的 lib crate），CI 的 `working-directory` 也是这个。根目录 `cargo test` 测的是独立实验脚本，不是 App。
+> 注意：命令在 `Desktop/src-tauri/` 目录执行（App 的 lib crate），`pr-checks.yml` 的 `working-directory` 也是这个。根目录 `cargo test` 测的是独立实验脚本，不是 App。
 >
-> CI 的 clippy 带 `-D warnings`——漏掉它会「本地绿、CI 红」。反之 CI 只跑裸 `cargo test`，不带 `--features test`，所以 `--features test` 下的失败 CI 抓不到，必须本地自查。
+> 🔴 **`pr-checks.yml` 实际上从来没有跑起来过，本地门禁是唯一防线。**
+> 两个 job（`Rust Checks` / `Frontend Type Check`）都写死 `runs-on: ubuntu-20.04`，
+> 而 GitHub 已下线该 runner 镜像——所有 `PR Checks` run 一律停在 `queued` 直到被 `cancelled`，
+> 历史上（可回溯至 2026-07-06 的 `main`）**没有一次 completed**。
+> 因此：**不要用「CI 绿」当验收依据**，必须本地把上面 4 条全部跑完并在汇报里贴出结果。
+> 修复方向是把 `runs-on` 改成 `ubuntu-22.04`（Tauri v1 依赖 `libwebkit2gtk-4.0-dev`，
+> Ubuntu 24.04 已改为 4.1，直接换 `ubuntu-latest` 会因缺包而失败）——属独立的 CI 修复任务。
 >
 > 前端只有 `Frontend Type Check`（`npm run build` 类型检查），**没有测试 job**——改 TS 不要声称「已测试」。
 
