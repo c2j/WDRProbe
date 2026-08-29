@@ -6,6 +6,8 @@ WDRProbe is a **Tauri v1 desktop app** for analyzing GaussDB/OpenGauss WDR (Work
 
 ## TDD 工作流（Red → Green → Refactor）
 
+> This section is written in Chinese to stay identical in wording to the shared TDD policy used across the Heptadecagon repos. The rest of this file remains in English.
+
 本仓库后端是 Rust（Tauri），前端是 React/TS。核心可测逻辑都在 Rust 侧（parser、database、commands）；前端目前无测试框架。改代码前先确认改的是 Rust 后端、TS 前端，还是 Tauri IPC 边界。
 
 ### 先读再改
@@ -51,7 +53,7 @@ WDRProbe is a **Tauri v1 desktop app** for analyzing GaussDB/OpenGauss WDR (Work
 
 **Green** — 只写让当前失败测试通过的最少代码。禁止删掉/改掉失败测试、一次引入多个未验证变更、用更宽断言/`unwrap()` 换绿。
 
-**Refactor** — 相关测试全绿后才重构；重构后立刻跑同一组测试；范围限于当前 crate。
+**Refactor** — 相关测试全绿后才重构；重构后立刻跑同一组测试；范围限于当前改动路径。
 
 **探索 vs 实现** — 需求或方案不清可写草稿验证；草稿不得合并；方案确定后必须走 TDD 重写。
 
@@ -97,13 +99,20 @@ cargo test --test <name>
 # 全量 Rust 测试（含 mockall/rstest/criterion 测试依赖）
 cargo test --features test
 
-# 提交前门禁
+# 提交前门禁（对应 .github/workflows/pr-checks.yml 的 Rust Checks job）
 cargo fmt --all -- --check
-cargo clippy --all --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo test
+
+# 本文件额外要求：跑上测试专用依赖（CI 目前没跑这条）
 cargo test --features test
 ```
 
-> 注意：命令在 `Desktop/src-tauri/` 目录执行（App 的 lib crate）。根目录 `cargo test` 测的是独立实验脚本，不是 App。
+> 注意：命令在 `Desktop/src-tauri/` 目录执行（App 的 lib crate），CI 的 `working-directory` 也是这个。根目录 `cargo test` 测的是独立实验脚本，不是 App。
+>
+> CI 的 clippy 带 `-D warnings`——漏掉它会「本地绿、CI 红」。反之 CI 只跑裸 `cargo test`，不带 `--features test`，所以 `--features test` 下的失败 CI 抓不到，必须本地自查。
+>
+> 前端只有 `Frontend Type Check`（`npm run build` 类型检查），**没有测试 job**——改 TS 不要声称「已测试」。
 
 ### 完成标准与汇报
 
